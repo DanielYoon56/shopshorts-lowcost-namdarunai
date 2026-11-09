@@ -1,0 +1,660 @@
+import os
+import sys
+import json
+import glob
+import time
+import subprocess
+from datetime import datetime
+import streamlit as st
+from dotenv import load_dotenv
+
+# 환경 변수 로드
+load_dotenv()
+
+# 경로 설정
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+OUTPUTS_DIR = os.path.join(PROJECT_ROOT, "outputs")
+MY_VIDEO_DIR = os.path.join(PROJECT_ROOT, "my-video")
+TTS_GEN_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "tts-generate", "scripts", "generate.py")
+TTS_FACTION_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "faction-shorts-studio", "scripts", "generate_tts.py")
+STT_ALIGN_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "stt-scene-align", "scripts", "align.py")
+RENDER_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "remotion-render", "scripts", "render.py")
+
+# 모듈 임포트
+from ai_researcher import run_product_research, save_research_artifacts
+from image_generator import batch_generate_images
+
+# 페이지 기본 설정
+st.set_page_config(
+    page_title="Product Shorts Studio Dashboard",
+    page_icon="🎬",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 커스텀 스타일
+st.markdown("""
+<style>
+    .main-title { font-size: 2.1rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .sub-title { font-size: 1.05rem; color: #888; margin-bottom: 1.5rem; }
+    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
+    .badge-done { background-color: #d1fae5; color: #065f46; }
+    .badge-wait { background-color: #fef3c7; color: #92400e; }
+    .badge-none { background-color: #f3f4f6; color: #4b5563; }
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------------------------------------------------------
+# 유틸리티 함수
+# ------------------------------------------------------------------
+def get_project_folders():
+    if not os.path.exists(OUTPUTS_DIR):
+        os.makedirs(OUTPUTS_DIR, exist_ok=True)
+    dirs = [d for d in os.listdir(OUTPUTS_DIR) if os.path.isdir(os.path.join(OUTPUTS_DIR, d))]
+    dirs.sort(key=lambda d: os.path.getmtime(os.path.join(OUTPUTS_DIR, d)), reverse=True)
+    return dirs
+
+def check_project_status(folder_path):
+    has_script = bool(glob.glob(os.path.join(folder_path, "*script*.md")) or os.path.exists(os.path.join(folder_path, "대본.md")))
+    has_audio = bool(glob.glob(os.path.join(folder_path, "*.wav")))
+    has_scenes = os.path.exists(os.path.join(folder_path, "scene_data.json"))
+    has_images = bool(glob.glob(os.path.join(folder_path, "assets", "cut*.jpg")) or os.path.exists(os.path.join(folder_path, "asset_sheet_1.jpg")))
+    has_video = os.path.exists(os.path.join(folder_path, "output.mp4"))
+    return {
+        "script": has_script,
+        "audio": has_audio,
+        "scenes": has_scenes,
+        "images": has_images,
+        "video": has_video
+    }
+
+# ------------------------------------------------------------------
+# 사이드바: 프로젝트 탐색 & 환경 설정 상태
+# ------------------------------------------------------------------
+with st.sidebar:
+    st.markdown("### 🎬 Shorts Studio")
+    st.markdown("---")
+
+    folders = get_project_folders()
+    
+    st.markdown("#### 📁 프로젝트 선택")
+    if folders:
+        selected_folder = st.selectbox(
+            "작업 폴더",
+            folders,
+            index=0,
+            help="outputs 디렉토리 내의 프로젝트 폴더입니다."
+        )
+    else:
+        st.info("현재 작업 폴더가 없습니다. 아래에서 새로 생성하세요.")
+        selected_folder = None
+
+    # 새 프로젝트 폴더 생성
+    with st.expander("➕ 새 프로젝트 폴더 생성"):
+        default_new_name = datetime.now().strftime("%y%m%d_%H%M")
+        new_folder_name = st.text_input("폴더명", value=default_new_name)
+        if st.button("폴더 생성", use_container_width=True):
+            new_path = os.path.join(OUTPUTS_DIR, new_folder_name)
+            os.makedirs(new_path, exist_ok=True)
+            os.makedirs(os.path.join(new_path, "assets"), exist_ok=True)
+            st.success(f"생성 완료: {new_folder_name}")
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### ⚙️ 시스템 상태")
+    
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key and len(openai_key) > 5:
+        st.markdown("🟢 **OpenAI**: 연동됨 (Whisper/GPT-4o)")
+    else:
+        st.markdown("🔴 **OpenAI**: 키 미설정 (`.env`)")
+        
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key and len(gemini_key) > 5:
+        st.markdown("🟢 **Gemini API**: 연동됨 (Gemini 2.0)")
+    else:
+        st.markdown("⚪ **Gemini API**: 미설정 (선택)")
+
+    st.markdown("🟢 **Edge-TTS**: 준비 완료 (무료/고속)")
+    st.markdown("🟢 **FLUX 이미지**: 준비 완료 (무료/고속)")
+
+    st.markdown("---")
+    st.markdown("#### 🔗 바로가기")
+    st.markdown("- [Remotion Studio (프리뷰)](http://localhost:3000)")
+    st.caption("터미널에서 `cd my-video && npm run dev` 실행 시 웹 프리뷰 활성화")
+
+# ------------------------------------------------------------------
+# 메인 화면
+# ------------------------------------------------------------------
+st.markdown('<div class="main-title">🎬 Product Shorts Studio Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">AI 제품 조사부터 대본, 고속 TTS, Whisper 자막 싱크, AI 이미지 일괄 생성, 9:16 비디오 렌더링까지 올인원 제어합니다.</div>', unsafe_allow_html=True)
+
+if not selected_folder:
+    st.warning("👈 왼쪽 사이드바에서 프로젝트 폴더를 생성하거나 선택해 주세요.")
+    st.stop()
+
+current_project_path = os.path.join(OUTPUTS_DIR, selected_folder)
+status = check_project_status(current_project_path)
+
+# 프로젝트 현황 5개 배지
+col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns(5)
+with col_h1:
+    b = "badge-done" if status["script"] else "badge-wait"
+    st.markdown(f'기획/대본: <span class="status-badge {b}">{"✅ 작성됨" if status["script"] else "⏳ 필요"}</span>', unsafe_allow_html=True)
+with col_h2:
+    b = "badge-done" if status["audio"] else "badge-wait"
+    st.markdown(f'음성 상태: <span class="status-badge {b}">{"✅ 생성됨" if status["audio"] else "⏳ 필요"}</span>', unsafe_allow_html=True)
+with col_h3:
+    b = "badge-done" if status["scenes"] else "badge-wait"
+    st.markdown(f'자막 싱크: <span class="status-badge {b}">{"✅ 완료" if status["scenes"] else "⏳ 필요"}</span>', unsafe_allow_html=True)
+with col_h4:
+    b = "badge-done" if status["images"] else "badge-wait"
+    st.markdown(f'에셋 이미지: <span class="status-badge {b}">{"✅ 생성됨" if status["images"] else "⏳ 필요"}</span>', unsafe_allow_html=True)
+with col_h5:
+    b = "badge-done" if status["video"] else "badge-wait"
+    st.markdown(f'영상 렌더: <span class="status-badge {b}">{"✅ 렌더완료" if status["video"] else "⏳ 미완료"}</span>', unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ------------------------------------------------------------------
+# 7대 탭 구성
+# ------------------------------------------------------------------
+tab_research, tab_script, tab_audio, tab_subtitles, tab_images, tab_video, tab_assets = st.tabs([
+    "🔍 1. AI 제품 조사 & 기획",
+    "✍️ 2. 대본 편집 & 플랜",
+    "🔊 3. TTS 음성 생성",
+    "🎯 4. Whisper 자막 싱크",
+    "🎨 5. AI 이미지 일괄 생성 (핵심)",
+    "🎬 6. Remotion 렌더링 & 프리뷰",
+    "📁 7. 에셋 갤러리"
+])
+
+# ------------------------------------------------------------------
+# TAB 1: AI 제품 조사 & 기획
+# ------------------------------------------------------------------
+with tab_research:
+    st.markdown("### 🔍 AI 제품 조사 및 숏폼 기획 생성")
+    st.markdown("상품 URL이나 제품명/특징을 입력하면 AI가 제품을 분석하여 **타겟 소구점, 촬영 플랜(`plan.md`), 대본(`script.md`), AI 영상 프롬프트(`prompts.md`)**를 자동 생성합니다.")
+
+    st.markdown("#### 🎯 쇼츠 유형 선택")
+    pipeline_type_label = st.radio(
+        "제작할 쇼츠 유형을 선택하세요:",
+        [
+            "🛍️ 단일 제품 시연 쇼핑쇼츠 (15초, 빠른 USP 증명, 1.2배속)",
+            "📖 팩션(Faction) 썰 쇼핑쇼츠 (30초, 도파민 스토리텔링 / Soft Sell, 1.5배속)"
+        ],
+        index=0,
+        help="단일 시연 쇼츠는 기능/제형이 직관적인 상품에 적합하며, 팩션 썰 쇼츠는 비하인드 스토리나 품절 대란 소재가 있는 상품에 최적입니다."
+    )
+    is_product_shorts = "단일 제품" in pipeline_type_label
+    pipeline_code = "product_15s" if is_product_shorts else "faction_30s"
+
+    st.markdown("---")
+    st.markdown("#### 📝 제품 정보 입력")
+    
+    col_in1, col_in2 = st.columns([1.5, 1])
+    with col_in1:
+        product_url = st.text_input(
+            "🔗 상품 URL (쿠팡, 스마트스토어, Amazon 등 - 선택사항)",
+            placeholder="https://www.coupang.com/vp/products/..."
+        )
+        product_text_desc = st.text_area(
+            "📝 제품명 / 브랜드 / 핵심 특징 / 썰 키워드",
+            placeholder="예: 샤오미 미니 무선 휴대용 가습기\n초음파 미세 안개 분무, 300ml 대용량, 8시간 연속 사용, 무소음, 건조한 사무실 전용",
+            height=130
+        )
+    with col_in2:
+        category_choice = st.selectbox(
+            "카테고리 선택",
+            ["자동 감지", "뷰티/스킨케어", "생활/청소/욕실", "주방/조리도구", "가전/디지털", "식품/간식", "패션/잡화", "여행/아웃도어", "아이디어/기타"],
+            index=0
+        )
+        model_choice = st.selectbox(
+            "분석 AI 모델",
+            ["auto (OpenAI / Gemini 자동 감지)", "openai (GPT-4o)", "gemini (Gemini 2.0 Flash)"],
+            index=0
+        )
+        st.info(f"현재 선택된 유형:\n- **{'15초 6비트 시연 쇼핑쇼츠' if is_product_shorts else '30초 4단계 팩션 썰쇼츠'}**\n- 목표 대상: `{selected_folder}` 폴더")
+
+    if st.button("🚀 AI 제품 조사 및 쇼츠 기획 생성하기", type="primary", use_container_width=True):
+        if not product_url and not product_text_desc.strip():
+            st.error("상품 URL 또는 제품 설명 중 최소 하나를 입력해 주세요!")
+        else:
+            with st.spinner("AI가 상품 정보 수집 및 카테고리 분석, 숏폼 서사 설계를 진행 중입니다..."):
+                try:
+                    res = run_product_research(
+                        product_text=product_text_desc,
+                        url=product_url,
+                        pipeline_type=pipeline_code,
+                        category=category_choice,
+                        model_choice=model_choice.split(" ")[0]
+                    )
+                    save_research_artifacts(current_project_path, res)
+                    st.success("🎉 AI 제품 조사 및 기획 생성이 완료되었습니다!")
+                    st.balloons()
+                    st.session_state["last_research_res"] = res
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"기획 생성 중 오류 발생: {e}")
+
+    plan_file = os.path.join(current_project_path, "plan.md")
+    if os.path.exists(plan_file):
+        st.markdown("---")
+        st.markdown("#### 📊 현재 작업 폴더에 생성된 기획 요약")
+        with open(plan_file, "r", encoding="utf-8") as f:
+            st.markdown(f.read())
+
+# ------------------------------------------------------------------
+# TAB 2: 대본 및 기획 편집
+# ------------------------------------------------------------------
+with tab_script:
+    st.markdown("### ✍️ 쇼츠 대본 편집 (`script.md`)")
+    
+    script_file_path = os.path.join(current_project_path, "script.md")
+    if not os.path.exists(script_file_path):
+        cands = glob.glob(os.path.join(current_project_path, "*script*.md")) + glob.glob(os.path.join(current_project_path, "*대본*.md"))
+        if cands:
+            script_file_path = cands[0]
+
+    current_script_content = ""
+    if os.path.exists(script_file_path):
+        with open(script_file_path, "r", encoding="utf-8") as f:
+            current_script_content = f.read()
+    else:
+        current_script_content = "1번 탭에서 AI 조사를 실행하거나, 쇼츠 대본 문장을 여기에 줄 단위로 입력하세요."
+
+    edited_script = st.text_area(
+        "대본 내용 (한 줄당 하나의 자막 씬으로 분할됩니다)",
+        value=current_script_content,
+        height=260,
+        help="숫자는 한글 발음(예: 46g -> 사십육 그램)으로 표기되어 있는지 확인하세요."
+    )
+
+    if st.button("💾 대본 저장하기", type="primary"):
+        with open(script_file_path, "w", encoding="utf-8") as f:
+            f.write(edited_script.strip() + "\n")
+        st.success(f"대본 저장 완료: {os.path.basename(script_file_path)}")
+        st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### 📋 기타 기획 파일 확인")
+    plan_path = os.path.join(current_project_path, "plan.md")
+    prompts_path = os.path.join(current_project_path, "prompts.md")
+    publish_path = os.path.join(current_project_path, "publish_kit.md")
+    
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
+        if os.path.exists(plan_path):
+            with st.expander("촬영 플랜 (`plan.md`)"):
+                with open(plan_path, "r", encoding="utf-8") as f:
+                    st.markdown(f.read())
+    with col_p2:
+        if os.path.exists(prompts_path):
+            with st.expander("영상 프롬프트 (`prompts.md`)"):
+                with open(prompts_path, "r", encoding="utf-8") as f:
+                    st.markdown(f.read())
+    with col_p3:
+        if os.path.exists(publish_path):
+            with st.expander("배포 키트 (`publish_kit.md`)"):
+                with open(publish_path, "r", encoding="utf-8") as f:
+                    st.markdown(f.read())
+
+# ------------------------------------------------------------------
+# TAB 3: TTS 음성 생성
+# ------------------------------------------------------------------
+with tab_audio:
+    st.markdown("### 🔊 TTS 나레이션 음성 생성")
+    
+    has_gemini_key = bool(os.getenv("GEMINI_API_KEY"))
+    col_t1, col_t2, col_t3 = st.columns([1.2, 1.2, 1])
+    with col_t1:
+        engine_options = (
+            ["Gemini-TTS (Google GenAI, 추천)", "Edge-TTS (무료 / 즉시 사용)", "Qwen3-TTS (로컬 서버 7860)"]
+            if has_gemini_key
+            else ["Edge-TTS (무료 / 즉시 사용, 추천)", "Gemini-TTS (Google GenAI)", "Qwen3-TTS (로컬 서버 7860)"]
+        )
+        engine_choice = st.selectbox(
+            "TTS 엔진 선택",
+            engine_options,
+            index=0
+        )
+        engine_code = "gemini" if "Gemini" in engine_choice else ("edge" if "Edge" in engine_choice else "qwen")
+
+    with col_t2:
+        if engine_code == "edge":
+            voice_choice = st.selectbox(
+                "보이스 선택",
+                ["ko-KR-SunHiNeural (여성, 쇼핑 추천)", "ko-KR-InJoonNeural (남성)", "ko-KR-HyunsuMultilingualNeural (남성 다국어)"],
+                index=0
+            )
+            voice_code = voice_choice.split(" ")[0]
+        elif engine_code == "gemini":
+            voice_choice = st.selectbox(
+                "보이스 선택 (Gemini)",
+                ["Kore (여성)", "Puck (남성)", "Charon", "Fenrir", "Aoede"],
+                index=0
+            )
+            voice_code = voice_choice.split(" ")[0]
+        else:
+            st.info("로컬 Qwen3-TTS는 `reference_voice.mp3` 클로닝 보이스를 사용합니다.")
+            voice_code = "default"
+
+    with col_t3:
+        speed_rate = st.selectbox(
+            "오디오 재생 배속",
+            [1.2, 1.5, 1.0, 1.3],
+            index=0,
+            help="쇼핑쇼츠는 1.2배속, 팩션 썰쇼츠는 1.5배속을 추천합니다."
+        )
+
+    if st.button("🚀 TTS 음성 생성하기", type="primary", use_container_width=True):
+        if not status["script"]:
+            st.error("먼저 대본(script.md)을 작성하고 저장해 주세요!")
+        else:
+            with st.spinner("음성 합성 및 FFmpeg 배속 인코딩 진행 중..."):
+                target_script = TTS_FACTION_SCRIPT if speed_rate == 1.5 else TTS_GEN_SCRIPT
+                cmd = [
+                    sys.executable,
+                    target_script,
+                    current_project_path,
+                    "--engine", engine_code,
+                    "--voice", voice_code,
+                    "--rate", str(speed_rate)
+                ]
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    st.success("음성 생성이 완료되었습니다!")
+                    st.rerun()
+                else:
+                    st.error(f"오류 발생:\n{res.stderr or res.stdout}")
+
+    st.markdown("---")
+    st.markdown("#### 🎧 생성된 오디오 미리 듣기")
+    
+    audio_files = glob.glob(os.path.join(current_project_path, "*.wav"))
+    if audio_files:
+        audio_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+        selected_audio = audio_files[0]
+        st.caption(f"현재 선택된 오디오: `{os.path.basename(selected_audio)}` ({round(os.path.getsize(selected_audio) / 1024, 1)} KB)")
+        with open(selected_audio, "rb") as f:
+            st.audio(f.read(), format="audio/wav")
+    else:
+        st.info("아직 생성된 오디오 파일이 없습니다. 위 버튼을 눌러 음성을 생성하세요.")
+
+# ------------------------------------------------------------------
+# TAB 4: Whisper 자막 싱크
+# ------------------------------------------------------------------
+with tab_subtitles:
+    st.markdown("### 🎯 Whisper STT 자막 씬 싱크 정렬")
+    st.markdown("OpenAI Whisper API를 통해 생성된 오디오와 대본을 비교하여 쇼츠용 2~4단어 호흡의 `scene_data.json`을 생성합니다.")
+
+    if st.button("⚡ Whisper STT 자막 싱크 실행", type="primary", use_container_width=True):
+        if not status["audio"]:
+            st.error("먼저 3번 탭에서 TTS 음성을 생성해 주세요!")
+        else:
+            with st.spinner("Whisper STT 음성 인식 및 자막 씬 분할 정렬 중..."):
+                cmd = [sys.executable, STT_ALIGN_SCRIPT, current_project_path]
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    st.success("자막 싱크 분할 완료!")
+                    st.rerun()
+                else:
+                    st.error(f"오류 발생:\n{res.stderr or res.stdout}")
+
+    st.markdown("---")
+    st.markdown("#### 📜 생성된 씬별 자막 데이터 (`scene_data.json`)")
+
+    scene_data_path = os.path.join(current_project_path, "scene_data.json")
+    if os.path.exists(scene_data_path):
+        try:
+            with open(scene_data_path, "r", encoding="utf-8") as f:
+                scenes = json.load(f)
+            
+            st.success(f"총 {len(scenes)}개 씬 구성 완료")
+            
+            table_data = []
+            for sc in scenes:
+                sc_id = sc.get("scene_id")
+                start = sc.get("start")
+                end = sc.get("end")
+                dur_frames = sc.get("duration_frames")
+                blocks = sc.get("text_blocks", [])
+                text_combined = " ".join([b.get("text", "") for b in blocks])
+                table_data.append({
+                    "씬 #": f"Scene {sc_id}",
+                    "시작 시간": f"{start:.2f}s",
+                    "종료 시간": f"{end:.2f}s",
+                    "프레임 수": f"{dur_frames}f (30fps)",
+                    "자막 텍스트": text_combined
+                })
+            
+            st.table(table_data)
+
+            with st.expander("JSON 원본 보기"):
+                st.json(scenes)
+        except Exception as e:
+            st.error(f"JSON 로드 오류: {e}")
+    else:
+        st.info("아직 `scene_data.json`이 생성되지 않았습니다. 위 버튼을 눌러 정렬을 실행하세요.")
+
+# ------------------------------------------------------------------
+# TAB 5: AI 이미지 일괄 생성 (NEW! 핵심 기능)
+# ------------------------------------------------------------------
+with tab_images:
+    st.markdown("### 🎨 6개 씬 AI 이미지 일괄 생성")
+    st.markdown("쇼츠 영상 6개 컷에 필요한 **초고화질 실사 AI 에셋을 일괄 생성**하고, 찌그러짐 없는 완벽한 **9:16 (1080x1920) 규격**으로 자동 크롭 분할합니다.")
+
+    col_im1, col_im2 = st.columns([1.2, 1.2])
+    with col_im1:
+        has_gemini = bool(os.getenv("GEMINI_API_KEY"))
+        img_engine_options = (
+            ["Google Gemini Nano Banana (Google AI Pro/Plus, 초고화질 추천)", "FLUX.1 (Pollinations 무료/무제한)"]
+            if has_gemini
+            else ["FLUX.1 (초고화질 / 무료 / 즉시 사용, 추천)", "Google Gemini Nano Banana (GEMINI_API_KEY 필요)"]
+        )
+        img_engine = st.selectbox(
+            "이미지 생성 AI 엔진",
+            img_engine_options,
+            index=0
+        )
+        img_engine_code = "gemini" if "Gemini" in img_engine else "flux"
+
+    with col_im2:
+        img_mode = st.selectbox(
+            "에셋 생성 방식",
+            [
+                "1x3 에셋 시트 2장 생성 후 자동 9:16 크롭 (권장, 황금 종횡비 1.69)",
+                "9:16 개별 컷 직접 생성 (Cut 1 ~ Cut 6)"
+            ],
+            index=0
+        )
+        img_mode_code = "1x3_sheets" if "1x3" in img_mode else "direct_cuts"
+
+    # 프롬프트 확인 및 편집
+    prompts_file_path = os.path.join(current_project_path, "prompts.md")
+    existing_prompts_text = ""
+    if os.path.exists(prompts_file_path):
+        with open(prompts_file_path, "r", encoding="utf-8") as f:
+            existing_prompts_text = f.read()
+
+    with st.expander("✏️ 6개 컷별 비주얼 프롬프트 확인 / 커스텀 편집"):
+        custom_prompts_input = st.text_area(
+            "프롬프트 내용 (`prompts.md`)",
+            value=existing_prompts_text if existing_prompts_text else "1번 탭에서 기획을 생성하면 6개 컷 프롬프트가 자동으로 채워집니다.",
+            height=180
+        )
+        if st.button("프롬프트 저장"):
+            with open(prompts_file_path, "w", encoding="utf-8") as f:
+                f.write(custom_prompts_input)
+            st.success("프롬프트 저장 완료!")
+
+    # 일괄 생성 버튼
+    if st.button("✨ 6개 씬 이미지 일괄 생성 시작 (Batch Generate)", type="primary", use_container_width=True):
+        progress_bar = st.progress(0.0)
+        status_text = st.empty()
+
+        def update_progress(current, total, msg):
+            pct = float(current) / float(total)
+            progress_bar.progress(pct)
+            status_text.markdown(f"**[{current}/{total}]** {msg}")
+
+        try:
+            with st.spinner("AI 이미지 생성 엔진 구동 중..."):
+                batch_generate_images(
+                    folder_path=current_project_path,
+                    engine=img_engine_code,
+                    mode=img_mode_code,
+                    progress_callback=update_progress
+                )
+            st.success("🎉 모든 컷의 AI 이미지 일괄 생성 및 9:16 크롭 완료!")
+            st.balloons()
+            st.rerun()
+        except Exception as e:
+            st.error(f"이미지 생성 중 오류 발생: {e}")
+
+    st.markdown("---")
+    st.markdown("#### 🖼️ 생성된 9:16 쇼츠 컷 에셋 갤러리 (`assets/cut*_9_16.jpg`)")
+    
+    # 생성된 9:16 컷 탐색
+    cut_images = sorted(glob.glob(os.path.join(current_project_path, "assets", "cut*_9_16.jpg")))
+    if not cut_images:
+        cut_images = sorted(glob.glob(os.path.join(current_project_path, "assets", "*.jpg")) + glob.glob(os.path.join(current_project_path, "assets", "*.png")))
+        
+    if cut_images:
+        st.success(f"총 {len(cut_images)}개 9:16 에셋 준비 완료 (쇼츠 배경 및 I2V 영상 원본으로 즉시 사용 가능)")
+        
+        cut_labels = [
+            "Cut 1: 결과 선공개 (Hook)",
+            "Cut 2: 대비 (Before/Problem)",
+            "Cut 3: 히어로 제품 (Product)",
+            "Cut 4: 핵심 시연 (Action)",
+            "Cut 5: 결과 증명 (Proof)",
+            "Cut 6: 루프 엔딩 (CTA)"
+        ]
+        
+        # 6개 컷 가로 3개씩 2줄 그리드 표시
+        cols = st.columns(3)
+        for i, cut_p in enumerate(cut_images[:6]):
+            with cols[i % 3]:
+                label = cut_labels[i] if i < len(cut_labels) else os.path.basename(cut_p)
+                st.image(cut_p, caption=label, use_container_width=True)
+                with open(cut_p, "rb") as f:
+                    st.download_button(
+                        label=f"📥 {os.path.basename(cut_p)} 다운로드",
+                        data=f,
+                        file_name=os.path.basename(cut_p),
+                        mime="image/jpeg",
+                        key=f"dl_cut_{i}"
+                    )
+    else:
+        st.info("아직 생성된 이미지가 없습니다. 위 [일괄 생성 시작] 버튼을 누르면 6개 컷이 자동으로 완성됩니다.")
+
+    # 종합 에셋 시트 원본 (1x3) 확인
+    sheets = sorted(glob.glob(os.path.join(current_project_path, "asset_sheet_*.jpg")) + glob.glob(os.path.join(current_project_path, "asset_sheet.jpg")))
+    if sheets:
+        with st.expander("원본 1x3 종합 에셋 시트 (16:9 가로 캔버스) 보기"):
+            sh_cols = st.columns(len(sheets))
+            for i, sh_p in enumerate(sheets):
+                with sh_cols[i]:
+                    st.image(sh_p, caption=os.path.basename(sh_p), use_container_width=True)
+
+# ------------------------------------------------------------------
+# TAB 6: Remotion 렌더링 & 비디오 프리뷰
+# ------------------------------------------------------------------
+with tab_video:
+    st.markdown("### 🎬 Remotion 9:16 비디오 렌더링")
+    st.markdown("자막 오버레이와 배경 비디오/에셋을 합성하여 최종 인스타그램/유튜브 9:16 쇼츠 MP4를 제작합니다.")
+
+    bg_videos = glob.glob(os.path.join(current_project_path, "video*.mp4")) + \
+                glob.glob(os.path.join(current_project_path, "background*.mp4")) + \
+                glob.glob(os.path.join(current_project_path, "scene*.mp4"))
+    
+    col_v1, col_v2 = st.columns([2, 1])
+    with col_v1:
+        if bg_videos:
+            st.success(f"배경 비디오 소스 감지됨 ({len(bg_videos)}개)")
+        else:
+            st.info("💡 비디오 클립이 없으면 5번 탭에서 생성된 9:16 이미지들을 기반으로 렌더링하거나, 7번 탭에서 영상 클립을 추가할 수 있습니다.")
+    
+    with col_v2:
+        no_audio_opt = st.checkbox("배경 영상 원본 오디오 보존 (--no-audio)", value=False)
+
+    if st.button("🎥 최종 9:16 비디오 렌더링 시작", type="primary", use_container_width=True):
+        if not status["scenes"]:
+            st.error("먼저 4번 탭에서 `scene_data.json` 자막 데이터를 생성해 주세요!")
+        else:
+            with st.spinner("Remotion Rspack 번들링 및 MP4 렌더링 진행 중 (수십 초 소요될 수 있습니다)..."):
+                cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
+                if no_audio_opt:
+                    cmd.append("--no-audio")
+                res = subprocess.run(cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    st.success("렌더링이 성공적으로 완료되었습니다!")
+                    st.rerun()
+                else:
+                    st.error(f"렌더링 실패:\n{res.stderr or res.stdout}")
+
+    st.markdown("---")
+    st.markdown("#### 📺 완성된 쇼츠 비디오 플레이어")
+    
+    output_video_path = os.path.join(current_project_path, "output.mp4")
+    if os.path.exists(output_video_path):
+        col_vid, col_meta = st.columns([1, 1])
+        with col_vid:
+            with open(output_video_path, "rb") as f:
+                video_bytes = f.read()
+                st.video(video_bytes)
+        with col_meta:
+            st.success(f"파일명: `output.mp4`")
+            st.caption(f"파일 크기: {round(os.path.getsize(output_video_path) / (1024 * 1024), 2)} MB")
+            with open(output_video_path, "rb") as f:
+                st.download_button(
+                    label="📥 최종 쇼츠 MP4 다운로드",
+                    data=f,
+                    file_name=f"{selected_folder}_shorts.mp4",
+                    mime="video/mp4",
+                    use_container_width=True
+                )
+    else:
+        st.info("아직 렌더링된 `output.mp4`가 없습니다. 위 렌더링 버튼을 눌러 쇼츠를 제작하세요.")
+
+# ------------------------------------------------------------------
+# TAB 7: 에셋 및 미디어 업로더
+# ------------------------------------------------------------------
+with tab_assets:
+    st.markdown("### 📁 에셋 및 미디어 업로드 / 관리")
+    st.markdown("이 프로젝트 폴더에 사용할 추가 상품 사진이나 비디오 클립을 업로드할 수 있습니다.")
+
+    uploaded_files = st.file_uploader(
+        "파일 업로드 (이미지 또는 영상 클립)",
+        accept_multiple_files=True,
+        type=["png", "jpg", "jpeg", "webp", "mp4", "mov"]
+    )
+    if uploaded_files:
+        for uf in uploaded_files:
+            if uf.name.endswith(".mp4") or uf.name.endswith(".mov"):
+                target_save = os.path.join(current_project_path, uf.name)
+            else:
+                assets_dir = os.path.join(current_project_path, "assets")
+                os.makedirs(assets_dir, exist_ok=True)
+                target_save = os.path.join(assets_dir, uf.name)
+            with open(target_save, "wb") as f:
+                f.write(uf.getbuffer())
+        st.success(f"{len(uploaded_files)}개 파일 업로드 완료!")
+        st.rerun()
+
+    st.markdown("---")
+    st.markdown("#### 📁 현재 저장된 에셋 목록")
+    
+    all_imgs = glob.glob(os.path.join(current_project_path, "assets", "*.png")) + \
+               glob.glob(os.path.join(current_project_path, "assets", "*.jpg")) + \
+               glob.glob(os.path.join(current_project_path, "*.png")) + \
+               glob.glob(os.path.join(current_project_path, "*.jpg"))
+               
+    if all_imgs:
+        cols = st.columns(4)
+        for i, img_p in enumerate(all_imgs):
+            with cols[i % 4]:
+                st.image(img_p, caption=os.path.basename(img_p), use_container_width=True)
+    else:
+        st.info("현재 저장된 이미지 에셋이 없습니다.")

@@ -12,9 +12,8 @@ description: 제품 링크 또는 제품 이미지를 입력하면 제품/회사
 
 ## 전제 조건 (시작 전 반드시 확인)
 
-- [ ] 로컬 Qwen3-TTS 서버가 `http://127.0.0.1:7860`에서 실행 중인가
-- [ ] `/Users/gwn/antigravity/voice/reference_voice.mp3` 또는 프로젝트 루트의 `reference_voice.mp3` 파일이 존재하는가
-- [ ] `.env` 파일에 `OPENAI_API_KEY`가 설정되어 있는가
+- [ ] `.env` 파일에 `OPENAI_API_KEY`가 설정되어 있는가 (Whisper STT 필수)
+- [ ] TTS 엔진 확인: 기본값 `Edge-TTS`로 설정되어 있으면 추가 서버/키 없이 즉시 실행 가능 (`Gemini-TTS` 사용 시 `GEMINI_API_KEY` 필요, `Qwen3-TTS` 사용 시 `http://127.0.0.1:7860` 서버 가동 필요)
 
 ## 입력 (둘 중 하나)
 

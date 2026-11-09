@@ -74,6 +74,16 @@ def main():
     if len(sys.argv) < 2: return
     folder = sys.argv[1]
     wav_path = os.path.join(folder, "output_1.2x.wav")
+    if not os.path.exists(wav_path):
+        for candidate_name in ["output_1.5x.wav", "output.wav"]:
+            cand = os.path.join(folder, candidate_name)
+            if os.path.exists(cand):
+                wav_path = cand
+                break
+        else:
+            all_wavs = glob.glob(os.path.join(folder, "*.wav"))
+            if all_wavs:
+                wav_path = all_wavs[0]
     
     # MD 파일 탐색 (script.md 최우선 탐색)
     script_path = None
