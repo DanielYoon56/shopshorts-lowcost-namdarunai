@@ -170,77 +170,203 @@ tab_research, tab_script, tab_audio, tab_subtitles, tab_images, tab_video, tab_a
 ])
 
 # ------------------------------------------------------------------
-# TAB 1: AI 제품 조사 & 기획
+# TAB 1: AI 제품 조사 & 기획 (스킬 워크플로우 통합)
 # ------------------------------------------------------------------
 with tab_research:
     st.markdown("### 🔍 AI 제품 조사 및 숏폼 기획 생성")
-    st.markdown("상품 URL이나 제품명/특징을 입력하면 AI가 제품을 분석하여 **타겟 소구점, 촬영 플랜(`plan.md`), 대본(`script.md`), AI 영상 프롬프트(`prompts.md`)**를 자동 생성합니다.")
+    st.markdown("상품 URL, 실물 사진, 또는 준비된 대본을 입력하여 **촬영 플랜(`plan.md`), 대본(`script.md`), AI 영상 프롬프트(`prompts.md`), 배포 키트(`publish_kit.md`)**를 자동 생성합니다.")
 
-    st.markdown("#### 🎯 쇼츠 유형 선택")
-    pipeline_type_label = st.radio(
-        "제작할 쇼츠 유형을 선택하세요:",
-        [
-            "🛍️ 단일 제품 시연 쇼핑쇼츠 (15초, 빠른 USP 증명, 1.2배속)",
-            "📖 팩션(Faction) 썰 쇼핑쇼츠 (30초, 도파민 스토리텔링 / Soft Sell, 1.5배속)"
-        ],
-        index=0,
-        help="단일 시연 쇼츠는 기능/제형이 직관적인 상품에 적합하며, 팩션 썰 쇼츠는 비하인드 스토리나 품절 대란 소재가 있는 상품에 최적입니다."
-    )
-    is_product_shorts = "단일 제품" in pipeline_type_label
-    pipeline_code = "product_15s" if is_product_shorts else "faction_30s"
+    # 1. 쇼츠 유형 및 기획 모드 선택
+    col_opt1, col_opt2 = st.columns([1.2, 1.2])
+    with col_opt1:
+        pipeline_type_label = st.radio(
+            "🎯 제작할 쇼츠 유형:",
+            [
+                "🛍️ 단일 제품 시연 쇼핑쇼츠 (15초, 빠른 USP 증명, 1.2배속)",
+                "📖 팩션(Faction) 썰 쇼핑쇼츠 (30초, 도파민 스토리텔링 / Soft Sell, 1.5배속)"
+            ],
+            index=0,
+            help="단일 시연 쇼츠는 기능/제형이 직관적인 상품에 적합하며, 팩션 썰 쇼츠는 비하인드 스토리나 품절 대란 소재가 있는 상품에 최적입니다."
+        )
+        is_product_shorts = "단일 제품" in pipeline_type_label
+        pipeline_code = "product_15s" if is_product_shorts else "faction_30s"
+
+    with col_opt2:
+        input_mode = st.radio(
+            "📝 기획 입력 모드:",
+            [
+                "🤖 URL 또는 제품 키워드로 AI 자동 기획",
+                "✍️ 내 대본 / 콘티 직접 입력 모드 (스킬과 100% 동일)"
+            ],
+            index=0,
+            help="스킬처럼 이미 작성된 대본이나 스토리보드 테이블이 있다면 '직접 입력 모드'를 선택하세요."
+        )
 
     st.markdown("---")
-    st.markdown("#### 📝 제품 정보 입력")
+    st.markdown("#### 📷 실물 제품 사진 업로드 (스킬 핵심 기능)")
+    st.caption("실물 사진을 업로드하면 Gemini 비전 AI가 제품의 실제 외형(색상, 재질, 형태, LED 등)을 정밀 분석하여 일관된 9:16 에셋을 생성합니다.")
     
-    col_in1, col_in2 = st.columns([1.5, 1])
-    with col_in1:
-        product_url = st.text_input(
-            "🔗 상품 URL (쿠팡, 스마트스토어, Amazon 등 - 선택사항)",
-            placeholder="https://www.coupang.com/vp/products/..."
-        )
-        product_text_desc = st.text_area(
-            "📝 제품명 / 브랜드 / 핵심 특징 / 썰 키워드",
-            placeholder="예: 샤오미 미니 무선 휴대용 가습기\n초음파 미세 안개 분무, 300ml 대용량, 8시간 연속 사용, 무소음, 건조한 사무실 전용",
-            height=130
-        )
-    with col_in2:
-        category_choice = st.selectbox(
-            "카테고리 선택",
-            ["자동 감지", "뷰티/스킨케어", "생활/청소/욕실", "주방/조리도구", "가전/디지털", "식품/간식", "패션/잡화", "여행/아웃도어", "아이디어/기타"],
-            index=0
-        )
-        model_choice = st.selectbox(
-            "분석 AI 모델",
-            ["auto (OpenAI / Gemini 자동 감지)", "openai (GPT-4o)", "gemini (Gemini 2.0 Flash)"],
-            index=0
-        )
-        st.info(f"현재 선택된 유형:\n- **{'15초 6비트 시연 쇼핑쇼츠' if is_product_shorts else '30초 4단계 팩션 썰쇼츠'}**\n- 목표 대상: `{selected_folder}` 폴더")
+    uploaded_file = st.file_uploader(
+        "실물 제품 사진 파일 선택 (JPG / PNG)",
+        type=["jpg", "jpeg", "png"],
+        key="ref_image_uploader"
+    )
+    
+    ref_image_path = os.path.join(current_project_path, "assets", "ref_cut1.png")
+    if uploaded_file is not None:
+        os.makedirs(os.path.join(current_project_path, "assets"), exist_ok=True)
+        with open(ref_image_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        st.success(f"실물 레퍼런스 사진 등록 완료: `assets/ref_cut1.png`")
+        
+    if os.path.exists(ref_image_path):
+        col_img_prev, col_img_info = st.columns([1, 3])
+        with col_img_prev:
+            st.image(ref_image_path, caption="현재 등록된 실물 레퍼런스", width=180)
+        with col_img_info:
+            st.info("등록된 실물 사진의 색상, 버튼, LED 인디케이터 등의 시각적 특성이 AI 기획안 및 6개 컷 비주얼 프롬프트에 자동 반영됩니다.")
 
-    if st.button("🚀 AI 제품 조사 및 쇼츠 기획 생성하기", type="primary", use_container_width=True):
-        if not product_url and not product_text_desc.strip():
-            st.error("상품 URL 또는 제품 설명 중 최소 하나를 입력해 주세요!")
-        else:
-            with st.spinner("AI가 상품 정보 수집 및 카테고리 분석, 숏폼 서사 설계를 진행 중입니다..."):
+    st.markdown("---")
+    st.markdown("#### 📝 제품 상세 및 대본 입력")
+    
+    custom_script_content = ""
+    if "직접 입력" in input_mode:
+        custom_script_content = st.text_area(
+            "✍️ 작성하신 대본 및 씬 스토리보드 (자유 양식)",
+            placeholder="""예시:
+🎧 솔직히 이어폰에 몇십만 원씩 써야 할까요?
+이 가격대인데 무선 블루투스 이어폰에 노이즈 캔슬링 기능까지 들어가 있습니다.
+게다가 방수 기능, 통화용 내장 마이크, 그리고 USB-C 충전까지...
+
+| 시간 | 화면 | 자막 |
+|---|---|---|
+| 0~3초 | 고가 이어폰 이미지 → 제품 등장 | 이어폰에 몇십만 원? |
+| 3~6초 | 이어폰 케이스 오픈 | 이 가격이면? |""",
+            height=200
+        )
+        product_url = ""
+        product_text_desc = "사용자 직접 입력 대본 기반 쇼츠"
+    else:
+        col_in1, col_in2 = st.columns([1.5, 1])
+        with col_in1:
+            product_url = st.text_input(
+                "🔗 상품 URL (쿠팡, 스마트스토어, Amazon 등 - 선택사항)",
+                placeholder="https://www.coupang.com/vp/products/..."
+            )
+            product_text_desc = st.text_area(
+                "📝 제품명 / 브랜드 / 핵심 특징 / 썰 키워드",
+                placeholder="예: 초가성비 무선 노이즈캔슬링 블루투스 이어폰\nLED 배터리 100 잔량 표시, 생활 방수, USB-C 충전, 운동/출퇴근용",
+                height=130
+            )
+        with col_in2:
+            category_choice = st.selectbox(
+                "카테고리 선택",
+                ["자동 감지", "가전/디지털", "뷰티/스킨케어", "생활/청소/욕실", "주방/조리도구", "식품/간식", "패션/잡화", "여행/아웃도어", "아이디어/기타"],
+                index=0
+            )
+            model_choice = st.selectbox(
+                "분석 AI 모델",
+                ["auto (OpenAI / Gemini 자동 감지)", "gemini (Gemini 3.8 Flash)", "openai (GPT-4o)"],
+                index=0
+            )
+
+    st.markdown("---")
+    st.markdown("#### 🚀 파이프라인 가동 선택")
+    
+    col_btn1, col_btn2 = st.columns([1, 1.3])
+    
+    with col_btn1:
+        if st.button("📄 1단계만 실행: AI 기획 및 대본 생성", use_container_width=True):
+            if "직접 입력" not in input_mode and not product_url and not product_text_desc.strip():
+                st.error("상품 URL 또는 제품 설명 중 최소 하나를 입력해 주세요!")
+            elif "직접 입력" in input_mode and not custom_script_content.strip():
+                st.error("대본 내용을 입력해 주세요!")
+            else:
+                with st.spinner("AI가 상품 정보 수집 및 실물 사진 분석, 숏폼 서사 설계를 진행 중입니다..."):
+                    try:
+                        res = run_product_research(
+                            product_text=product_text_desc,
+                            url=product_url,
+                            pipeline_type=pipeline_code,
+                            category=category_choice if "직접 입력" not in input_mode else "자동 감지",
+                            model_choice=model_choice.split(" ")[0] if "직접 입력" not in input_mode else "auto",
+                            image_path=ref_image_path if os.path.exists(ref_image_path) else None,
+                            custom_script=custom_script_content if "직접 입력" in input_mode else None
+                        )
+                        save_research_artifacts(current_project_path, res)
+                        st.success("🎉 AI 제품 기획 및 대본 저장이 완료되었습니다!")
+                        st.balloons()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"기획 생성 중 오류 발생: {e}")
+
+    with col_btn2:
+        if st.button("⚡ 원클릭 올인원 풀 파이프라인 가동 (기획 ➔ TTS ➔ STT ➔ 9:16 이미지 일괄 생성)", type="primary", use_container_width=True):
+            if "직접 입력" not in input_mode and not product_url and not product_text_desc.strip():
+                st.error("상품 URL 또는 제품 설명 중 최소 하나를 입력해 주세요!")
+            elif "직접 입력" in input_mode and not custom_script_content.strip():
+                st.error("대본 내용을 입력해 주세요!")
+            else:
+                full_prog = st.progress(0.0)
+                full_status = st.empty()
+                
                 try:
+                    # 1. 기획 생성
+                    full_status.markdown("🔄 **[1/4 단계]** AI 제품 조사 & 실물 사진 비전 분석 & 대본/프롬프트 생성 중...")
+                    full_prog.progress(0.15)
                     res = run_product_research(
                         product_text=product_text_desc,
                         url=product_url,
                         pipeline_type=pipeline_code,
-                        category=category_choice,
-                        model_choice=model_choice.split(" ")[0]
+                        category=category_choice if "직접 입력" not in input_mode else "자동 감지",
+                        model_choice=model_choice.split(" ")[0] if "직접 입력" not in input_mode else "auto",
+                        image_path=ref_image_path if os.path.exists(ref_image_path) else None,
+                        custom_script=custom_script_content if "직접 입력" in input_mode else None
                     )
                     save_research_artifacts(current_project_path, res)
-                    st.success("🎉 AI 제품 조사 및 기획 생성이 완료되었습니다!")
+                    
+                    # 2. TTS 음성 생성
+                    full_status.markdown("🔄 **[2/4 단계]** Gemini TTS 고품질 나레이션 음성 합성 및 1.2x/1.5x 배속 인코딩 중...")
+                    full_prog.progress(0.40)
+                    speed_rate = 1.2 if is_product_shorts else 1.5
+                    target_tts = TTS_FACTION_SCRIPT if speed_rate == 1.5 else TTS_GEN_SCRIPT
+                    tts_cmd = [
+                        sys.executable, target_tts, current_project_path,
+                        "--engine", "gemini" if os.getenv("GEMINI_API_KEY") else "edge",
+                        "--rate", str(speed_rate)
+                    ]
+                    subprocess.run(tts_cmd, check=True, capture_output=True, text=True)
+                    
+                    # 3. Whisper STT 자막 싱크
+                    full_status.markdown("🔄 **[3/4 단계]** Whisper STT 오디오 음성 분석 & 0.1초 정밀 자막 타임코드 싱크 정렬 중...")
+                    full_prog.progress(0.65)
+                    stt_cmd = [sys.executable, STT_ALIGN_SCRIPT, current_project_path]
+                    subprocess.run(stt_cmd, check=True, capture_output=True, text=True)
+                    
+                    # 4. 이미지 6컷 일괄 생성 및 9:16 자동 분할
+                    full_status.markdown("🔄 **[4/4 단계]** Google Gemini Nano Banana 1x3 에셋 시트 생성 및 9:16 자동 스마트 크롭 중...")
+                    full_prog.progress(0.85)
+                    img_eng = "gemini" if os.getenv("GEMINI_API_KEY") else "flux"
+                    batch_generate_images(
+                        folder_path=current_project_path,
+                        engine=img_eng,
+                        mode="1x3_sheets"
+                    )
+                    
+                    full_prog.progress(1.0)
+                    full_status.markdown("✅ **[완료]** 모든 기획, TTS 음성, Whisper 자막, 9:16 에셋 6컷 일괄 생성이 성공적으로 완료되었습니다!")
+                    st.success("🎉 원클릭 풀 파이프라인 가동 성공! 상단 3, 4, 5번 탭에서 결과를 확인하세요.")
                     st.balloons()
-                    st.session_state["last_research_res"] = res
+                    time.sleep(1)
                     st.rerun()
                 except Exception as e:
-                    st.error(f"기획 생성 중 오류 발생: {e}")
+                    full_status.empty()
+                    st.error(f"풀 파이프라인 실행 중 오류 발생: {e}")
 
     plan_file = os.path.join(current_project_path, "plan.md")
     if os.path.exists(plan_file):
         st.markdown("---")
-        st.markdown("#### 📊 현재 작업 폴더에 생성된 기획 요약")
+        st.markdown("#### 📊 현재 작업 폴더에 생성된 기획 요약 (`plan.md`)")
         with open(plan_file, "r", encoding="utf-8") as f:
             st.markdown(f.read())
 

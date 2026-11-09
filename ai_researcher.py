@@ -42,28 +42,40 @@ def fetch_url_metadata(url):
         print(f"[!] URL 메타데이터 수집 실패 ({url}): {e}")
         return {}
 
-def call_llm(prompt, system_prompt, prefer_model="auto"):
-    """OpenAI 또는 Gemini를 통해 LLM 호출"""
+def call_llm(prompt, system_prompt, prefer_model="auto", image_path=None):
+    """OpenAI 또는 Gemini를 통해 LLM 호출 (멀티모달 이미지 분석 지원)"""
     openai_key = os.getenv("OPENAI_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY")
     
     use_model = prefer_model
     if use_model == "auto":
-        if openai_key and len(openai_key) > 5:
-            use_model = "openai"
-        elif gemini_key and len(gemini_key) > 5:
+        # 이미지 분석이 필요하거나 Gemini 키가 있으면 gemini 우선 (Google AI Pro 최적화)
+        if gemini_key and len(gemini_key) > 5:
             use_model = "gemini"
+        elif openai_key and len(openai_key) > 5:
+            use_model = "openai"
         else:
             raise ValueError("OpenAI 또는 Gemini API 키가 설정되지 않았습니다. .env 파일을 확인하세요.")
 
     if use_model == "openai":
         from openai import OpenAI
         client = OpenAI(api_key=openai_key)
+        
+        user_content = prompt
+        if image_path and os.path.exists(image_path):
+            import base64
+            with open(image_path, "rb") as img_f:
+                b64 = base64.b64encode(img_f.read()).decode("utf-8")
+            user_content = [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+            ]
+            
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": user_content}
             ],
             temperature=0.7,
             response_format={"type": "json_object"}
@@ -73,12 +85,18 @@ def call_llm(prompt, system_prompt, prefer_model="auto"):
     elif use_model == "gemini":
         from google import genai
         from google.genai import types
+        from PIL import Image
         client = genai.Client(api_key=gemini_key)
         
-        full_prompt = f"{system_prompt}\n\n반드시 순수 JSON 객체만 응답하세요.\n\n사용자 요청:\n{prompt}"
+        full_text = f"{system_prompt}\n\n반드시 순수 JSON 객체만 응답하세요.\n\n사용자 요청:\n{prompt}"
+        contents = [full_text]
+        if image_path and os.path.exists(image_path):
+            img = Image.open(image_path)
+            contents.insert(0, img)
+            
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=full_prompt,
+            model="gemini-3.8-flash",
+            contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
             )
@@ -87,9 +105,9 @@ def call_llm(prompt, system_prompt, prefer_model="auto"):
     else:
         raise ValueError(f"지원하지 않는 모델: {use_model}")
 
-def run_product_research(product_text, url="", pipeline_type="product_15s", category="자동 감지", model_choice="auto"):
+def run_product_research(product_text, url="", pipeline_type="product_15s", category="자동 감지", model_choice="auto", image_path=None, custom_script=None):
     """
-    제품 텍스트 및 URL 정보를 분석하여:
+    제품 텍스트, URL, 실물 이미지, 커스텀 대본을 분석하여:
     1. PRODUCT_TRUTH / STORY_TRUTH
     2. plan.md (6비트 또는 4단계 팩션 서사)
     3. script.md (자막 및 음성용 한국어 구어체 대본)
@@ -108,26 +126,31 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
         context_text += f"웹페이지 요약: {url_info['description']}\n"
     if category != "자동 감지":
         context_text += f"지정 카테고리: {category}\n"
+    if image_path and os.path.exists(image_path):
+        context_text += f"\n[중요] 첨부된 실물 제품 사진을 시각적으로 정밀 분석하여 제품의 정확한 색상, 재질, 형태, 버튼/LED 유무, 패키지 특징을 PRODUCT_TRUTH 및 6컷 비주얼 프롬프트에 100% 일치하도록 반영하세요.\n"
+    if custom_script and custom_script.strip():
+        context_text += f"\n[사용자 제공 원문 대본 및 콘티]:\n{custom_script}\n(주의: 사용자가 제공한 대본과 의도를 100% 계승하여 문장 단위 script.md와 타임라인을 정렬하세요.)\n"
 
     if pipeline_type == "product_15s":
         system_prompt = """
 당신은 대한민국 상위 0.1% 숏폼 커머스 영상 총괄 기획자입니다.
-단일 제품의 강렬한 15초(1.2배속 기준) 시연 쇼핑쇼츠를 기획합니다.
+단일 제품의 강렬한 15초~25초(1.2배속 기준) 시연 쇼핑쇼츠를 기획합니다.
 
 [핵심 규칙 - 검증된 15초 6비트 레시피]
 1. 훅은 무조건 '결과 선공개'부터 시작합니다. (문제 화면이나 로고로 시작 금지)
-2. 6비트 타임라인 (총 15초):
-   - 비트 1 (3초): 결과 선공개 (Cut 1 Hero/Result) - 완성된 결과물 클로즈업
-   - 비트 2 (2초): 대비 (Cut 2 Before/Problem) - 기존 방식의 불편함
-   - 비트 3 (2초): 제품 공개 (Cut 3 Hero/Product) - 손이 제품을 들어올림
-   - 비트 4 (4초): 핵심 시연 (Cut 4 Action/Detail) - 한 가지 핵심 동작
-   - 비트 5 (2초): 재훅 (Cut 5 Re-Hook/Proof) - 결과물 손으로 집어 증명
-   - 비트 6 (2초): 루프 엔딩 + CTA (Cut 6 Loop) - 첫 컷과 동일 앵글
+2. 6비트 타임라인:
+   - 비트 1 (Hook): 결과 선공개 (Cut 1 Hero/Result) - 완성된 결과물 클로즈업
+   - 비트 2 (Before): 대비 (Cut 2 Before/Problem) - 기존 방식의 불편함/분실 불안감
+   - 비트 3 (Hero): 제품 공개 (Cut 3 Hero/Product) - 제품 정면 고정 팩샷
+   - 비트 4 (Action): 핵심 시연 (Cut 4 Action/Detail) - 한 가지 핵심 동작 (착용, 작동)
+   - 비트 5 (Proof): 재훅/증명 (Cut 5 Re-Hook/Proof) - 결과물 및 기능 증명 (방수, 내구성)
+   - 비트 6 (CTA): 루프 엔딩 + 구매 유도 (Cut 6 Loop) - 첫 컷과 연결되는 팩샷
 3. 대본(script) 작성 규칙:
    - 문장 단위로 줄바꿈 (stt-scene-align이 1:1로 자막 씬에 매핑됨)
-   - 숫자는 반드시 한글 발음으로 표기 (예: "46g" -> "사십육 그램", "30%" -> "삼십 퍼센트")
-   - 발화 총 길이는 약 12~13초 (마지막 2초는 무음 CTA)
-   - 광고 신호를 주는 진부한 표현("지금 사세요", "놀라운 효과") 배제하고 직관적인 USP 증명 중심
+   - 숫자는 반드시 한글 발음으로 표기 (예: "46g" -> "사십육 그램", "30%" -> "삼십 퍼센트", "USB-C" -> "유에스비 씨")
+   - 사용자가 직접 대본을 제공한 경우 해당 문장을 우선 정제하여 적용할 것.
+4. 프롬프트(prompts.md) 작성 규칙:
+   - 첨부된 실물 사진의 외형(색상, 재질, LED 불빛 등)을 반드시 반영한 고화질 영문 프롬프트 작성 (Pure authentic photography, studio lighting, no text).
 
 [반환 JSON 스키마]
 {
@@ -137,7 +160,7 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
   "product_truth": "PRODUCT_TRUTH YAML/마크다운 형식 요약",
   "plan_md": "6비트 타임라인과 촬영 플랜 마크다운",
   "script_md": "줄 단위로 분리된 음성 대본 텍스트",
-  "prompts_md": "6개 컷별 Midjourney / Kling AI 비주얼 프롬프트",
+  "prompts_md": "6개 컷별 AI 비주얼 프롬프트 (Cut 1~6)",
   "publish_kit_md": "쇼츠 제목 3종, 설명문, 해시태그 10개, 썸네일 카피"
 }
 """
@@ -171,7 +194,7 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
 """
 
     prompt = f"다음 제품 정보를 바탕으로 최적의 쇼핑 쇼츠 기획을 작성해주세요:\n\n{context_text}"
-    return call_llm(prompt, system_prompt, prefer_model=model_choice)
+    return call_llm(prompt, system_prompt, prefer_model=model_choice, image_path=image_path)
 
 def save_research_artifacts(target_folder, result_dict):
     """생성된 기획 아티팩트를 대상 폴더에 저장"""
