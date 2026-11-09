@@ -20,8 +20,14 @@ TTS_FACTION_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "faction-sh
 STT_ALIGN_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "stt-scene-align", "scripts", "align.py")
 RENDER_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "remotion-render", "scripts", "render.py")
 
-# 모듈 임포트
+# 모듈 임포트 (핫 리로드 보장)
+import importlib
+import ai_researcher
+importlib.reload(ai_researcher)
 from ai_researcher import run_product_research, save_research_artifacts
+
+import image_generator
+importlib.reload(image_generator)
 from image_generator import batch_generate_images
 
 # 페이지 기본 설정
