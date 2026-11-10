@@ -1,14 +1,45 @@
 import "./index.css";
-import { Composition, getInputProps } from "remotion";
+import React from "react";
+import { AbsoluteFill, Composition, getInputProps, staticFile, Video } from "remotion";
 import { HelloWorld, myCompSchema } from "./HelloWorld";
 import { Logo, myCompSchema2 } from "./HelloWorld/Logo";
 import { DynamicVideo, dynamicVideoSchema } from "./DynamicVideo";
+import activeProps from "./active_props.json";
 
-// Each <Composition> is an entry in the sidebar!
+// Component to preview the final rendered MP4 directly
+const RenderedVideoPreview: React.FC<{ folderName: string }> = ({ folderName }) => {
+  const videoSrc = staticFile(`outputs/${folderName}/output.mp4`);
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#000000" }}>
+      <Video
+        src={videoSrc}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
 
 export const RemotionRoot: React.FC = () => {
-  const inputProps = getInputProps() as any;
-  const durationInFrames = Math.max(1, inputProps.durationInFrames || 300);
+  const inputProps = (getInputProps() || {}) as any;
+  const mergedProps = {
+    ...activeProps,
+    ...inputProps,
+    sceneData:
+      inputProps.sceneData && inputProps.sceneData.length > 0
+        ? inputProps.sceneData
+        : activeProps.sceneData || [],
+  };
+  const durationInFrames = Math.max(
+    1,
+    inputProps.durationInFrames ||
+      mergedProps.durationInFrames ||
+      activeProps.durationInFrames ||
+      600
+  );
 
   return (
     <>
@@ -20,10 +51,18 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         schema={dynamicVideoSchema}
+        defaultProps={mergedProps as any}
+      />
+
+      <Composition
+        id="RenderedVideoPreview"
+        component={RenderedVideoPreview}
+        durationInFrames={durationInFrames}
+        fps={30}
+        width={1080}
+        height={1920}
         defaultProps={{
-          folderName: "261109_2145",
-          sceneData: [],
-          durationInFrames: 300,
+          folderName: mergedProps.folderName || "261109_2145",
         }}
       />
 

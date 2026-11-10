@@ -324,6 +324,13 @@ def main():
     with open(temp_props_path, "w", encoding="utf-8") as f:
         json.dump(props_data, f, ensure_ascii=False, indent=2)
 
+    active_props_path = os.path.join(REMOTION_DIR, "src", "active_props.json")
+    try:
+        with open(active_props_path, "w", encoding="utf-8") as f:
+            json.dump(props_data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
     # 5-1. Windows Symlink 회피 및 Remotion 서빙을 위해 활성 프로젝트 에셋을 my-video/public/outputs/<folder_name>으로 동기화
     public_target_dir = os.path.join(REMOTION_DIR, "public", "outputs", folder_name)
     os.makedirs(public_target_dir, exist_ok=True)

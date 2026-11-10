@@ -3,6 +3,8 @@ import sys
 import json
 import glob
 import time
+import math
+import shutil
 import socket
 import subprocess
 from datetime import datetime
@@ -137,6 +139,67 @@ def check_project_status(folder_path):
         "video": has_video
     }
 
+def sync_remotion_active_project(folder_path):
+    """활성 프로젝트 폴더의 에셋과 설정(active_props.json)을 Remotion Studio용으로 자동 동기화"""
+    if not folder_path or not os.path.exists(folder_path):
+        return
+    folder_name = os.path.basename(folder_path)
+    
+    # 1. scene_data.json 확인
+    scene_data_path = os.path.join(folder_path, "scene_data.json")
+    scenes = []
+    duration_in_frames = 600
+    if os.path.exists(scene_data_path):
+        try:
+            with open(scene_data_path, "r", encoding="utf-8") as f:
+                scenes = json.load(f)
+            if scenes:
+                max_end = max(s.get("end", 0.0) for s in scenes)
+                duration_in_frames = max(1, int(math.ceil(max_end * 30)))
+        except Exception:
+            pass
+
+    # 2. 오디오 파일 확인
+    audio_file = "output_1.2x.wav"
+    for cand in ["output_1.2x.wav", "output_1.5x.wav", "output.wav"]:
+        if os.path.exists(os.path.join(folder_path, cand)):
+            audio_file = cand
+            break
+
+    # 3. my-video/src/active_props.json 갱신
+    active_props = {
+        "folderName": folder_name,
+        "audioFileName": audio_file,
+        "durationInFrames": duration_in_frames,
+        "sceneData": scenes
+    }
+    src_props_path = os.path.join(MY_VIDEO_DIR, "src", "active_props.json")
+    try:
+        with open(src_props_path, "w", encoding="utf-8") as f:
+            json.dump(active_props, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+    # 4. my-video/public/outputs/<folder_name> 에셋 동기화
+    public_target_dir = os.path.join(MY_VIDEO_DIR, "public", "outputs", folder_name)
+    os.makedirs(public_target_dir, exist_ok=True)
+    for root, dirs, files in os.walk(folder_path):
+        rel = os.path.relpath(root, folder_path)
+        if rel.startswith("remotion_") or "node_modules" in rel or rel.startswith("capcut"):
+            continue
+        dest_dir = os.path.join(public_target_dir, rel) if rel != "." else public_target_dir
+        os.makedirs(dest_dir, exist_ok=True)
+        for f in files:
+            if f.endswith(".zip") or f.endswith(".tmp") or "transcode_temp" in f:
+                continue
+            s_f = os.path.join(root, f)
+            d_f = os.path.join(dest_dir, f)
+            if not os.path.exists(d_f) or os.path.getmtime(s_f) > os.path.getmtime(d_f):
+                try:
+                    shutil.copy2(s_f, d_f)
+                except Exception:
+                    pass
+
 # ------------------------------------------------------------------
 # 사이드바: 프로젝트 탐색 & 환경 설정 상태
 # ------------------------------------------------------------------
@@ -232,6 +295,10 @@ if not selected_folder:
 
 current_project_path = os.path.join(OUTPUTS_DIR, selected_folder)
 status = check_project_status(current_project_path)
+
+# Remotion Studio용 활성 프로젝트 설정 및 에셋 자동 동기화
+if status["scenes"] or status["images"]:
+    sync_remotion_active_project(current_project_path)
 
 # 프로젝트 현황 5개 배지
 col_h1, col_h2, col_h3, col_h4, col_h5 = st.columns(5)

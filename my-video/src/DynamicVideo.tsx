@@ -189,7 +189,7 @@ export const DynamicVideo: React.FC<DynamicVideoProps> = ({
           const startFrame =
             index === 0 ? 0 : Math.round(sceneData[index - 1].end * 30);
           const endFrame = Math.round(scene.end * 30);
-          const duration = endFrame - startFrame;
+          const duration = Math.max(1, endFrame - startFrame);
 
           return (
             <Sequence
