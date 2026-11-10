@@ -30,6 +30,8 @@ yarn-error.log*
 # outputs 디렉토리 내 생성된 대용량 영상, 음성, 에셋 파일 제외 (.gitkeep 유지)
 outputs/*
 !outputs/.gitkeep
+my-video/public/outputs/*
+!my-video/public/outputs/.gitkeep
 
 # IDE & Editor
 .vscode/

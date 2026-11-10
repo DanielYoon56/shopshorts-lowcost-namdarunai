@@ -65,19 +65,19 @@ st.markdown("""
 # 유틸리티 함수
 # ------------------------------------------------------------------
 def ensure_capcut_package(folder_path):
-    """CapCut 전용 00_음성, 01~06_이미지, subtitles.srt 패키지 자동 생성"""
-    capcut_dir = os.path.join(folder_path, "capcut_assets")
-    os.makedirs(capcut_dir, exist_ok=True)
+    """assets 폴더 내 CapCut 및 편집용 00_음성, 01~06_이미지, subtitles.srt 생성 및 패키지화"""
+    assets_dir = os.path.join(folder_path, "assets")
+    os.makedirs(assets_dir, exist_ok=True)
+    import shutil
     
-    # 1. 오디오 복사
+    # 1. 오디오 복사 (assets/00_voiceover.wav)
     for wav_name in ["output_1.2x.wav", "output_1.5x.wav", "output.wav"]:
         w_path = os.path.join(folder_path, wav_name)
         if os.path.exists(w_path):
-            import shutil
-            shutil.copyfile(w_path, os.path.join(capcut_dir, "00_voiceover.wav"))
+            shutil.copyfile(w_path, os.path.join(assets_dir, "00_voiceover.wav"))
             break
             
-    # 2. 6컷 이미지 번호순 복사
+    # 2. 6컷 이미지 번호순 복사 (assets/01_Cut1_Hook.jpg ~ 06_Cut6_CTA.jpg)
     cut_labels = [
         ("cut1_9_16.jpg", "01_Cut1_Hook.jpg"),
         ("cut2_9_16.jpg", "02_Cut2_Before.jpg"),
@@ -87,12 +87,12 @@ def ensure_capcut_package(folder_path):
         ("cut6_9_16.jpg", "06_Cut6_CTA.jpg")
     ]
     for src, dst in cut_labels:
-        sp = os.path.join(folder_path, "assets", src)
+        sp = os.path.join(assets_dir, src)
+        dp = os.path.join(assets_dir, dst)
         if os.path.exists(sp):
-            import shutil
-            shutil.copyfile(sp, os.path.join(capcut_dir, dst))
+            shutil.copyfile(sp, dp)
             
-    # 3. CapCut 로컬 자막용 subtitles.srt 생성
+    # 3. CapCut 로컬 자막용 subtitles.srt 생성 (assets/subtitles.srt)
     scene_file = os.path.join(folder_path, "scene_data.json")
     if os.path.exists(scene_file):
         try:
@@ -108,14 +108,14 @@ def ensure_capcut_package(folder_path):
             for i, sc in enumerate(scenes):
                 t_str = " ".join([b["text"] for b in sc.get("text_blocks", [])])
                 srt_lines.append(f"{i+1}\n{fmt_t(sc['start'])} --> {fmt_t(sc['end'])}\n{t_str}\n")
-            with open(os.path.join(capcut_dir, "subtitles.srt"), "w", encoding="utf-8") as f:
+            with open(os.path.join(assets_dir, "subtitles.srt"), "w", encoding="utf-8") as f:
                 f.write("\n".join(srt_lines))
         except Exception:
             pass
             
+    # 4. assets 폴더를 capcut_package.zip으로 압축
     zip_base = os.path.join(folder_path, "capcut_package")
-    import shutil
-    shutil.make_archive(zip_base, "zip", capcut_dir)
+    shutil.make_archive(zip_base, "zip", assets_dir)
     return zip_base + ".zip"
 
 def get_project_folders():
@@ -185,7 +185,7 @@ def sync_remotion_active_project(folder_path):
     os.makedirs(public_target_dir, exist_ok=True)
     for root, dirs, files in os.walk(folder_path):
         rel = os.path.relpath(root, folder_path)
-        if rel.startswith("remotion_") or "node_modules" in rel or rel.startswith("capcut"):
+        if rel.startswith("remotion_") or "node_modules" in rel:
             continue
         dest_dir = os.path.join(public_target_dir, rel) if rel != "." else public_target_dir
         os.makedirs(dest_dir, exist_ok=True)
@@ -999,7 +999,7 @@ with tab_assets:
 
     st.markdown("---")
     st.markdown("#### 🎬 CapCut(캡컷) 편집 패키지 원클릭 다운로드")
-    st.caption("음성 파일 + 9:16 이미지 6컷 + 자막 싱크 파일(`subtitles.srt`)이 모두 포함된 CapCut 전용 패키지입니다.")
+    st.caption("음성 파일 + 9:16 이미지 6컷 + 자막 싱크 파일(`subtitles.srt`)이 `assets/` 폴더에 생성 및 압축된 패키지입니다.")
     
     col_cp1, col_cp2 = st.columns([1.5, 1])
     with col_cp1:
