@@ -1,0 +1,210 @@
+[
+  {
+    "scene_id": 1,
+    "start": 0.0,
+    "end": 1.38,
+    "duration_frames": 41,
+    "text_blocks": [
+      {
+        "text": "아직도 배터리",
+        "start": 0.0,
+        "end": 1.38
+      }
+    ]
+  },
+  {
+    "scene_id": 2,
+    "start": 1.38,
+    "end": 3.0,
+    "duration_frames": 48,
+    "text_blocks": [
+      {
+        "text": "불안해 하세요?",
+        "start": 1.38,
+        "end": 3.0
+      }
+    ]
+  },
+  {
+    "scene_id": 3,
+    "start": 3.0,
+    "end": 3.93,
+    "duration_frames": 27,
+    "text_blocks": [
+      {
+        "text": "뚜껑 열면",
+        "start": 3.0,
+        "end": 3.93
+      }
+    ]
+  },
+  {
+    "scene_id": 4,
+    "start": 3.93,
+    "end": 5.33,
+    "duration_frames": 42,
+    "text_blocks": [
+      {
+        "text": "잔량이 숫자로",
+        "start": 3.93,
+        "end": 5.33
+      }
+    ]
+  },
+  {
+    "scene_id": 5,
+    "start": 5.33,
+    "end": 6.5,
+    "duration_frames": 35,
+    "text_blocks": [
+      {
+        "text": "딱 보입니다",
+        "start": 5.33,
+        "end": 6.5
+      }
+    ]
+  },
+  {
+    "scene_id": 6,
+    "start": 6.5,
+    "end": 8.18,
+    "duration_frames": 50,
+    "text_blocks": [
+      {
+        "text": "고광택 블랙 디자인",
+        "start": 6.5,
+        "end": 8.18
+      }
+    ]
+  },
+  {
+    "scene_id": 7,
+    "start": 8.18,
+    "end": 10.06,
+    "duration_frames": 56,
+    "text_blocks": [
+      {
+        "text": "블루 LED 잔량 표시",
+        "start": 8.18,
+        "end": 10.06
+      }
+    ]
+  },
+  {
+    "scene_id": 8,
+    "start": 10.06,
+    "end": 10.9,
+    "duration_frames": 25,
+    "text_blocks": [
+      {
+        "text": "완벽하죠",
+        "start": 10.06,
+        "end": 10.9
+      }
+    ]
+  },
+  {
+    "scene_id": 9,
+    "start": 10.9,
+    "end": 12.49,
+    "duration_frames": 47,
+    "text_blocks": [
+      {
+        "text": "귀에 쏙 들어가는",
+        "start": 10.9,
+        "end": 12.49
+      }
+    ]
+  },
+  {
+    "scene_id": 10,
+    "start": 12.49,
+    "end": 13.86,
+    "duration_frames": 41,
+    "text_blocks": [
+      {
+        "text": "초밀착 핏으로",
+        "start": 12.49,
+        "end": 13.86
+      }
+    ]
+  },
+  {
+    "scene_id": 11,
+    "start": 13.86,
+    "end": 15.0,
+    "duration_frames": 34,
+    "text_blocks": [
+      {
+        "text": "편안합니다",
+        "start": 13.86,
+        "end": 15.0
+      }
+    ]
+  },
+  {
+    "scene_id": 12,
+    "start": 15.0,
+    "end": 16.35,
+    "duration_frames": 40,
+    "text_blocks": [
+      {
+        "text": "배터리 걱정 없이",
+        "start": 15.0,
+        "end": 16.35
+      }
+    ]
+  },
+  {
+    "scene_id": 13,
+    "start": 16.35,
+    "end": 17.7,
+    "duration_frames": 40,
+    "text_blocks": [
+      {
+        "text": "음악을 즐기세요",
+        "start": 16.35,
+        "end": 17.7
+      }
+    ]
+  },
+  {
+    "scene_id": 14,
+    "start": 17.7,
+    "end": 18.87,
+    "duration_frames": 35,
+    "text_blocks": [
+      {
+        "text": "지금 프로필 링크에서",
+        "start": 17.7,
+        "end": 18.87
+      }
+    ]
+  },
+  {
+    "scene_id": 15,
+    "start": 18.87,
+    "end": 19.65,
+    "duration_frames": 23,
+    "text_blocks": [
+      {
+        "text": "특별 혜택가로",
+        "start": 18.87,
+        "end": 19.65
+      }
+    ]
+  },
+  {
+    "scene_id": 16,
+    "start": 19.65,
+    "end": 20.3,
+    "duration_frames": 19,
+    "text_blocks": [
+      {
+        "text": "만나보세요",
+        "start": 19.65,
+        "end": 20.3
+      }
+    ]
+  }
+]

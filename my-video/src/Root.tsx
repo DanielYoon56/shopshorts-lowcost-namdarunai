@@ -21,7 +21,7 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
         schema={dynamicVideoSchema}
         defaultProps={{
-          folderName: "260831_2337",
+          folderName: "261109_2145",
           sceneData: [],
           durationInFrames: 300,
         }}

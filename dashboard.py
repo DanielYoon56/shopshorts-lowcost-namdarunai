@@ -3,10 +3,19 @@ import sys
 import json
 import glob
 import time
+import socket
 import subprocess
 from datetime import datetime
 import streamlit as st
 from dotenv import load_dotenv
+
+def is_port_open(port=3000, host="127.0.0.1"):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.4)
+            return s.connect_ex((host, port)) == 0
+    except Exception:
+        return False
 
 # 환경 변수 로드
 load_dotenv()
@@ -132,7 +141,7 @@ def check_project_status(folder_path):
 # 사이드바: 프로젝트 탐색 & 환경 설정 상태
 # ------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 🎬 Loco Shorts")
+    st.markdown("### 🎬 Loco ShopShorts")
     st.markdown("---")
 
     folders = get_project_folders()
@@ -178,15 +187,43 @@ with st.sidebar:
     st.markdown("🟢 **Edge-TTS**: 준비 완료 (무료/고속)")
     st.markdown("🟢 **FLUX 이미지**: 준비 완료 (무료/고속)")
 
+    # Remotion Studio 상태 및 제어
+    studio_active = is_port_open(port=3000)
+    if studio_active:
+        st.markdown("🟢 **Remotion Studio**: 실행 중 (3000)")
+        st.link_button("🌐 Studio 프리뷰 열기", "http://localhost:3000", use_container_width=True)
+    else:
+        st.markdown("⚪ **Remotion Studio**: 미실행")
+        if st.button("▶️ Remotion Studio 시작", use_container_width=True):
+            npx_bin = "npx.cmd" if sys.platform == "win32" else "npx"
+            subprocess.Popen([npx_bin, "remotion", "studio", "--port=3000"], cwd=MY_VIDEO_DIR)
+            time.sleep(1.5)
+            st.rerun()
+
     st.markdown("---")
-    st.markdown("#### 🔗 바로가기")
-    st.markdown("- [Remotion Studio (프리뷰)](http://localhost:3000)")
-    st.caption("터미널에서 `cd my-video && npm run dev` 실행 시 웹 프리뷰 활성화")
+    st.markdown("#### ⚡ 퀵 액션 (바로 렌더링)")
+    if st.button("🎥 9:16 비디오 렌더링 시작", use_container_width=True):
+        if not selected_folder:
+            st.warning("먼저 작업 폴더를 선택하세요.")
+        else:
+            p_path = os.path.join(OUTPUTS_DIR, selected_folder)
+            st_check = check_project_status(p_path)
+            if not st_check["scenes"]:
+                st.warning("먼저 4번 탭에서 자막(`scene_data.json`)을 생성해 주세요.")
+            else:
+                with st.spinner("Remotion 9:16 비디오 렌더링 진행 중..."):
+                    cmd = [sys.executable, RENDER_SCRIPT, p_path]
+                    r = subprocess.run(cmd, capture_output=True, text=True)
+                    if r.returncode == 0:
+                        st.success("✅ 비디오 렌더링 완료!")
+                        st.rerun()
+                    else:
+                        st.error(f"렌더링 실패: {r.stderr or r.stdout}")
 
 # ------------------------------------------------------------------
 # 메인 화면
 # ------------------------------------------------------------------
-st.markdown('<div class="main-title">🎬 Product Shorts Studio Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">🎬 Loco ShopShorts Studio</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">AI 제품 조사부터 대본, 고속 TTS, Whisper 자막 싱크, AI 이미지 일괄 생성, 9:16 비디오 렌더링까지 올인원 제어합니다.</div>', unsafe_allow_html=True)
 
 if not selected_folder:
@@ -354,14 +391,13 @@ with tab_research:
                             custom_script=custom_script_content if "직접 입력" in input_mode else None
                         )
                         save_research_artifacts(current_project_path, res)
-                        st.success("🎉 AI 제품 기획 및 대본 저장이 완료되었습니다!")
-                        st.balloons()
-                        st.rerun()
+                        st.success("🎉 AI 제품 기획 및 대본 저장이 완료되었습니다! (2번 탭에서 확인)")
                     except Exception as e:
                         st.error(f"기획 생성 중 오류 발생: {e}")
 
     with col_btn2:
-        if st.button("⚡ 원클릭 올인원 풀 파이프라인 가동 (기획 ➔ TTS ➔ STT ➔ 9:16 이미지 일괄 생성)", type="primary", use_container_width=True):
+        include_remotion_render = st.checkbox("🎬 [5단계] 9:16 비디오 렌더링(Remotion)까지 한번에 완성", value=True)
+        if st.button("⚡ 원클릭 올인원 풀 파이프라인 가동 (기획 ➔ TTS ➔ STT ➔ 이미지 ➔ 9:16 렌더링)", type="primary", use_container_width=True):
             if "직접 입력" not in input_mode and not product_url and not product_text_desc.strip():
                 st.error("상품 URL 또는 제품 설명 중 최소 하나를 입력해 주세요!")
             elif "직접 입력" in input_mode and not custom_script_content.strip():
@@ -372,7 +408,7 @@ with tab_research:
                 
                 try:
                     # 1. 기획 생성
-                    full_status.markdown("🔄 **[1/4 단계]** AI 제품 조사 & 실물 사진 비전 분석 & 대본/프롬프트 생성 중...")
+                    full_status.markdown("🔄 **[1단계]** AI 제품 조사 & 실물 사진 비전 분석 & 대본/프롬프트 생성 중...")
                     full_prog.progress(0.15)
                     res = run_product_research(
                         product_text=product_text_desc,
@@ -386,8 +422,8 @@ with tab_research:
                     save_research_artifacts(current_project_path, res)
                     
                     # 2. TTS 음성 생성
-                    full_status.markdown("🔄 **[2/4 단계]** Gemini TTS 고품질 나레이션 음성 합성 및 1.2x/1.5x 배속 인코딩 중...")
-                    full_prog.progress(0.40)
+                    full_status.markdown("🔄 **[2단계]** Gemini TTS 고품질 나레이션 음성 합성 및 배속 인코딩 중...")
+                    full_prog.progress(0.35)
                     speed_rate = 1.2 if is_product_shorts else 1.5
                     target_tts = TTS_FACTION_SCRIPT if speed_rate == 1.5 else TTS_GEN_SCRIPT
                     tts_cmd = [
@@ -398,27 +434,33 @@ with tab_research:
                     subprocess.run(tts_cmd, check=True, capture_output=True, text=True)
                     
                     # 3. Whisper STT 자막 싱크
-                    full_status.markdown("🔄 **[3/4 단계]** Whisper STT 오디오 음성 분석 & 0.1초 정밀 자막 타임코드 싱크 정렬 중...")
-                    full_prog.progress(0.65)
+                    full_status.markdown("🔄 **[3단계]** Whisper STT 오디오 음성 분석 & 0.1초 정밀 자막 타임코드 싱크 정렬 중...")
+                    full_prog.progress(0.55)
                     stt_cmd = [sys.executable, STT_ALIGN_SCRIPT, current_project_path]
                     subprocess.run(stt_cmd, check=True, capture_output=True, text=True)
                     
                     # 4. 이미지 6컷 일괄 생성 및 9:16 자동 분할
-                    full_status.markdown("🔄 **[4/4 단계]** Google Gemini Nano Banana 1x3 에셋 시트 생성 및 9:16 자동 스마트 크롭 중...")
-                    full_prog.progress(0.85)
+                    full_status.markdown("🔄 **[4단계]** Google Gemini Nano Banana 1x3 에셋 시트 생성 및 9:16 자동 스마트 크롭 중...")
+                    full_prog.progress(0.75)
                     img_eng = "gemini" if os.getenv("GEMINI_API_KEY") else "flux"
                     batch_generate_images(
                         folder_path=current_project_path,
                         engine=img_eng,
                         mode="1x3_sheets"
                     )
+
+                    # 5. Remotion 9:16 비디오 렌더링 (선택 시)
+                    if include_remotion_render:
+                        full_status.markdown("🔄 **[5단계]** Remotion 9:16 비디오 고속 렌더링 중 (Rspack 합성)...")
+                        full_prog.progress(0.88)
+                        render_cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
+                        subprocess.run(render_cmd, check=True, capture_output=True, text=True)
                     
                     full_prog.progress(1.0)
-                    full_status.markdown("✅ **[완료]** 모든 기획, TTS 음성, Whisper 자막, 9:16 에셋 6컷 일괄 생성이 성공적으로 완료되었습니다!")
-                    st.success("🎉 원클릭 풀 파이프라인 가동 성공! 상단 3, 4, 5번 탭에서 결과를 확인하세요.")
+                    msg_tail = "6번 탭에서 최종 영상을 재생하세요!" if include_remotion_render else "상단 3, 4, 5번 탭에서 확인하세요."
+                    full_status.markdown(f"✅ **[완료]** 모든 파이프라인 처리가 성공적으로 완료되었습니다! {msg_tail}")
+                    st.success(f"🎉 원클릭 풀 파이프라인 가동 성공! {msg_tail}")
                     st.balloons()
-                    time.sleep(1)
-                    st.rerun()
                 except Exception as e:
                     full_status.empty()
                     st.error(f"풀 파이프라인 실행 중 오류 발생: {e}")
@@ -745,60 +787,75 @@ with tab_images:
                     st.image(sh_p, caption=os.path.basename(sh_p), use_container_width=True)
 
 # ------------------------------------------------------------------
-# TAB 6: 최종 쇼츠 비디오 (CapCut 업로드 / Remotion 렌더링)
+# TAB 6: Remotion 렌더링 & 최종 쇼츠 비디오 관리
 # ------------------------------------------------------------------
 with tab_video:
-    st.markdown("### 🎬 최종 9:16 쇼츠 비디오 관리 & 플레이어")
-    st.markdown("캡컷(CapCut) 등 외부 편집기에서 완성한 영상을 **직접 업로드**하거나, **Remotion 엔진으로 자동 렌더링**하여 최종 결과물을 확인할 수 있습니다.")
+    st.markdown("### 🎬 Remotion 9:16 비디오 렌더링 & 비디오 플레이어")
+    st.markdown("자막 오버레이(`scene_data.json`)와 배경 비디오/에셋 이미지를 합성하여 **최종 9:16 쇼츠 MP4 비디오**를 렌더링합니다.")
 
-    # 1. CapCut 완성 영상 직접 업로드 섹션 (NEW!)
-    with st.expander("📤 캡컷(CapCut) 등에서 렌더링해온 완성 MP4 파일 업로드하기", expanded=True):
-        st.markdown("캡컷(CapCut), 프리미어, 블로 등에서 편집을 마치고 내보낸(Export) **최종 9:16 MP4 영상**을 여기에 등록하세요.")
+    # 1. Remotion 자동 렌더링 섹션 (상단 메인 배치)
+    col_r1, col_r2 = st.columns([2, 1])
+    with col_r1:
+        bg_videos = glob.glob(os.path.join(current_project_path, "video*.mp4")) + \
+                    glob.glob(os.path.join(current_project_path, "background*.mp4")) + \
+                    glob.glob(os.path.join(current_project_path, "scene*.mp4"))
+        if bg_videos:
+            st.success(f"🎬 배경 비디오 소스 감지됨 ({len(bg_videos)}개)")
+        else:
+            st.info("💡 동영상 클립이 없는 경우, 5번 탭에서 생성된 9:16 실사 이미지 에셋들을 기반으로 자동 조립 렌더링됩니다.")
+
+    with col_r2:
+        no_audio_opt = st.checkbox("배경 원본 오디오 보존 (--no-audio)", value=False)
+
+    col_btn_render, col_btn_studio = st.columns([1.5, 1])
+    with col_btn_render:
+        if st.button("🎥 최종 9:16 비디오 렌더링 시작 (Remotion Render)", type="primary", use_container_width=True):
+            if not status["scenes"]:
+                st.error("먼저 4번 탭에서 `scene_data.json` 자막 데이터를 생성해 주세요!")
+            else:
+                with st.spinner("Remotion Rspack 번들링 및 9:16 MP4 렌더링 진행 중 (약 30~50초 소요)..."):
+                    cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
+                    if no_audio_opt:
+                        cmd.append("--no-audio")
+                    res = subprocess.run(cmd, capture_output=True, text=True)
+                    if res.returncode == 0:
+                        st.success("🎉 Remotion 렌더링이 성공적으로 완료되었습니다!")
+                        st.rerun()
+                    else:
+                        st.error(f"렌더링 실패:\n{res.stderr or res.stdout}")
+
+    with col_btn_studio:
+        if is_port_open(port=3000):
+            st.link_button("🌐 Remotion Studio 실시간 프리뷰 열기 (3000)", "http://localhost:3000", use_container_width=True)
+        else:
+            if st.button("▶️ Remotion Studio 프리뷰 서버 시작", use_container_width=True):
+                npx_bin = "npx.cmd" if sys.platform == "win32" else "npx"
+                subprocess.Popen([npx_bin, "remotion", "studio", "--port=3000"], cwd=MY_VIDEO_DIR)
+                time.sleep(1.5)
+                st.rerun()
+
+    st.markdown("---")
+
+    # 2. CapCut 등 외부 편집기 완성본 업로드 섹션
+    with st.expander("📤 또는 캡컷(CapCut) 등 외부 편집기에서 렌더링해온 완성 MP4 파일 등록하기"):
+        st.markdown("캡컷(CapCut), 프리미어 등에서 편집을 마치고 내보낸(Export) **최종 9:16 MP4 영상**을 등록하면 대시보드 플레이어에서 바로 확인하고 배포 키트를 복사할 수 있습니다.")
         uploaded_final_video = st.file_uploader(
             "완성된 쇼츠 비디오 파일 선택 (MP4 / MOV)",
             type=["mp4", "mov"],
             key="capcut_final_uploader"
         )
         if uploaded_final_video is not None:
-            final_save_path = os.path.join(current_project_path, "output.mp4")
-            with open(final_save_path, "wb") as f:
-                f.write(uploaded_final_video.getbuffer())
-            st.success("🎉 캡컷 완성 영상이 대시보드에 성공적으로 등록되었습니다! (`output.mp4`)")
-            st.balloons()
-            time.sleep(1)
-            st.rerun()
+            file_sig = f"{uploaded_final_video.name}_{uploaded_final_video.size}_{selected_folder}"
+            if st.session_state.get("last_uploaded_capcut_sig") != file_sig:
+                final_save_path = os.path.join(current_project_path, "output.mp4")
+                with open(final_save_path, "wb") as f:
+                    f.write(uploaded_final_video.getbuffer())
+                st.session_state["last_uploaded_capcut_sig"] = file_sig
+                st.session_state["uploaded_video_just_now"] = True
+                st.rerun()
 
-    # 2. Remotion 자동 렌더링 섹션
-    with st.expander("⚙️ (대안) Remotion 코드로 9:16 비디오 자동 렌더링"):
-        st.markdown("자막 오버레이와 배경 비디오/에셋을 코드 기반으로 합성하여 렌더링합니다.")
-        bg_videos = glob.glob(os.path.join(current_project_path, "video*.mp4")) + \
-                    glob.glob(os.path.join(current_project_path, "background*.mp4")) + \
-                    glob.glob(os.path.join(current_project_path, "scene*.mp4"))
-        
-        col_v1, col_v2 = st.columns([2, 1])
-        with col_v1:
-            if bg_videos:
-                st.success(f"배경 비디오 소스 감지됨 ({len(bg_videos)}개)")
-            else:
-                st.info("💡 비디오 클립이 없으면 5번 탭에서 생성된 9:16 이미지들을 기반으로 렌더링됩니다.")
-        
-        with col_v2:
-            no_audio_opt = st.checkbox("배경 영상 원본 오디오 보존 (--no-audio)", value=False)
-
-        if st.button("🎥 Remotion 렌더링 실행", type="secondary", use_container_width=True):
-            if not status["scenes"]:
-                st.error("먼저 4번 탭에서 `scene_data.json` 자막 데이터를 생성해 주세요!")
-            else:
-                with st.spinner("Remotion Rspack 번들링 및 MP4 렌더링 진행 중..."):
-                    cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
-                    if no_audio_opt:
-                        cmd.append("--no-audio")
-                    res = subprocess.run(cmd, capture_output=True, text=True)
-                    if res.returncode == 0:
-                        st.success("렌더링이 성공적으로 완료되었습니다!")
-                        st.rerun()
-                    else:
-                        st.error(f"렌더링 실패:\n{res.stderr or res.stdout}")
+        if st.session_state.pop("uploaded_video_just_now", False):
+            st.success("✅ 캡컷 완성 영상이 대시보드에 성공적으로 등록되었습니다! (`output.mp4`)")
 
     st.markdown("---")
     st.markdown("#### 📺 최종 완성된 쇼츠 비디오 플레이어")
@@ -830,7 +887,7 @@ with tab_video:
                     with open(pub_path, "r", encoding="utf-8") as pf:
                         st.markdown(pf.read())
     else:
-        st.info("아직 등록된 최종 영상(`output.mp4`)이 없습니다. 위에서 캡컷 렌더링 영상을 업로드하거나 Remotion 렌더링을 실행하세요.")
+        st.info("아직 생성된 최종 영상(`output.mp4`)이 없습니다. 위에서 Remotion 렌더링을 실행하거나 캡컷 영상을 등록하세요.")
 
 # ------------------------------------------------------------------
 # TAB 7: 에셋 및 미디어 업로더

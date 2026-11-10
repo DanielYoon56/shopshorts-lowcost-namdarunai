@@ -4,6 +4,7 @@ import json
 import math
 import glob
 import subprocess
+import shutil
 
 FPS = 30
 
@@ -149,6 +150,14 @@ def main():
             single_video_file = f"video.{ext}"
             single_video_path = p
             break
+            
+    if not single_video_path:
+        cand_videos = glob.glob(os.path.join(folder_path, "*.mp4")) + glob.glob(os.path.join(folder_path, "*.mov"))
+        cand_videos = [v for v in cand_videos if os.path.basename(v) != "output.mp4" and not os.path.basename(v).startswith("scene") and not "temp" in v]
+        if cand_videos:
+            single_video_path = cand_videos[0]
+            single_video_file = os.path.basename(single_video_path)
+            print(f"[*] 단일 배경 비디오 감지됨: {single_video_file}")
 
     if single_video_path:
         # 단일 비디오 최적화 진행
@@ -315,6 +324,26 @@ def main():
     with open(temp_props_path, "w", encoding="utf-8") as f:
         json.dump(props_data, f, ensure_ascii=False, indent=2)
 
+    # 5-1. Windows Symlink 회피 및 Remotion 서빙을 위해 활성 프로젝트 에셋을 my-video/public/outputs/<folder_name>으로 동기화
+    public_target_dir = os.path.join(REMOTION_DIR, "public", "outputs", folder_name)
+    os.makedirs(public_target_dir, exist_ok=True)
+    for root, dirs, files in os.walk(folder_path):
+        rel = os.path.relpath(root, folder_path)
+        if rel.startswith("remotion_") or "node_modules" in rel or rel.startswith("capcut"):
+            continue
+        target_sub = os.path.join(public_target_dir, rel) if rel != "." else public_target_dir
+        os.makedirs(target_sub, exist_ok=True)
+        for f in files:
+            if f.endswith(".zip") or f.endswith(".tmp") or "transcode_temp" in f or f == "output.mp4":
+                continue
+            src_file = os.path.join(root, f)
+            dst_file = os.path.join(target_sub, f)
+            if not os.path.exists(dst_file) or os.path.getmtime(src_file) > os.path.getmtime(dst_file):
+                try:
+                    shutil.copy2(src_file, dst_file)
+                except Exception:
+                    pass
+
     # 5. 리모션 렌더링 명령 실행
     output_video_path = os.path.join(folder_path, "output.mp4")
     
@@ -323,8 +352,9 @@ def main():
     
     # 렌더링 도중 폰트나 Rspack 관련 경고 등으로 터미널이 혼잡할 수 있으므로, standard CLI 실행
     # npx remotion render DynamicVideo <output_path> --props=<props_path>
+    npx_bin = "npx.cmd" if sys.platform == "win32" else "npx"
     cmd = [
-        "npx", "remotion", "render",
+        npx_bin, "remotion", "render",
         composition_id,
         output_video_path,
         f"--props={temp_props_path}",
@@ -335,10 +365,11 @@ def main():
     print(f"[*] 명령어: {' '.join(cmd)}")
     
     try:
-        # my-video 디렉토리에서 명령어 실행
+        # my-video 디렉토리에서 명령어 실행 (Windows에서는 shell=True 필요)
         result = subprocess.run(
             cmd,
             cwd=REMOTION_DIR,
+            shell=(sys.platform == "win32"),
             check=True
         )
         print(f"[+] 성공: 비디오가 성공적으로 생성되었습니다 -> {output_video_path}")

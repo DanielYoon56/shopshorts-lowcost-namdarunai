@@ -4,6 +4,7 @@ import {
   Audio,
   Sequence,
   Video,
+  Img,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
@@ -14,6 +15,7 @@ import { loadFont } from "@remotion/google-fonts/NotoSansKR";
 // Load Noto Sans KR font for Korean subtitles
 const { fontFamily } = loadFont("normal", {
   weights: ["700", "900"],
+  ignoreTooManyRequestsWarning: true,
 });
 
 // Define schema for parameterized rendering
@@ -104,13 +106,15 @@ const SubtitleOverlay: React.FC<{
   );
 };
 
-// Scene Video Component with graceful fallback
+// Scene Video Component with graceful fallback (비디오가 없으면 9:16 AI 에셋 이미지 렌더링)
 const SceneVideo: React.FC<{
   folderName: string;
   sceneId: number;
   hasVideo: boolean;
 }> = ({ folderName, sceneId, hasVideo }) => {
   const videoSrc = staticFile(`outputs/${folderName}/scene${sceneId}.mp4`);
+  const cutIndex = ((sceneId - 1) % 6) + 1;
+  const imageSrc = staticFile(`outputs/${folderName}/assets/cut${cutIndex}_9_16.jpg`);
 
   return (
     <div
@@ -135,7 +139,19 @@ const SceneVideo: React.FC<{
           muted
           loop
         />
-      ) : null}
+      ) : (
+        <Img
+          src={imageSrc}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+          onError={(e) => {
+            (e.target as HTMLElement).style.display = "none";
+          }}
+        />
+      )}
     </div>
   );
 };
