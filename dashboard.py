@@ -745,53 +745,73 @@ with tab_images:
                     st.image(sh_p, caption=os.path.basename(sh_p), use_container_width=True)
 
 # ------------------------------------------------------------------
-# TAB 6: Remotion 렌더링 & 비디오 프리뷰
+# TAB 6: 최종 쇼츠 비디오 (CapCut 업로드 / Remotion 렌더링)
 # ------------------------------------------------------------------
 with tab_video:
-    st.markdown("### 🎬 Remotion 9:16 비디오 렌더링")
-    st.markdown("자막 오버레이와 배경 비디오/에셋을 합성하여 최종 인스타그램/유튜브 9:16 쇼츠 MP4를 제작합니다.")
+    st.markdown("### 🎬 최종 9:16 쇼츠 비디오 관리 & 플레이어")
+    st.markdown("캡컷(CapCut) 등 외부 편집기에서 완성한 영상을 **직접 업로드**하거나, **Remotion 엔진으로 자동 렌더링**하여 최종 결과물을 확인할 수 있습니다.")
 
-    bg_videos = glob.glob(os.path.join(current_project_path, "video*.mp4")) + \
-                glob.glob(os.path.join(current_project_path, "background*.mp4")) + \
-                glob.glob(os.path.join(current_project_path, "scene*.mp4"))
-    
-    col_v1, col_v2 = st.columns([2, 1])
-    with col_v1:
-        if bg_videos:
-            st.success(f"배경 비디오 소스 감지됨 ({len(bg_videos)}개)")
-        else:
-            st.info("💡 비디오 클립이 없으면 5번 탭에서 생성된 9:16 이미지들을 기반으로 렌더링하거나, 7번 탭에서 영상 클립을 추가할 수 있습니다.")
-    
-    with col_v2:
-        no_audio_opt = st.checkbox("배경 영상 원본 오디오 보존 (--no-audio)", value=False)
+    # 1. CapCut 완성 영상 직접 업로드 섹션 (NEW!)
+    with st.expander("📤 캡컷(CapCut) 등에서 렌더링해온 완성 MP4 파일 업로드하기", expanded=True):
+        st.markdown("캡컷(CapCut), 프리미어, 블로 등에서 편집을 마치고 내보낸(Export) **최종 9:16 MP4 영상**을 여기에 등록하세요.")
+        uploaded_final_video = st.file_uploader(
+            "완성된 쇼츠 비디오 파일 선택 (MP4 / MOV)",
+            type=["mp4", "mov"],
+            key="capcut_final_uploader"
+        )
+        if uploaded_final_video is not None:
+            final_save_path = os.path.join(current_project_path, "output.mp4")
+            with open(final_save_path, "wb") as f:
+                f.write(uploaded_final_video.getbuffer())
+            st.success("🎉 캡컷 완성 영상이 대시보드에 성공적으로 등록되었습니다! (`output.mp4`)")
+            st.balloons()
+            time.sleep(1)
+            st.rerun()
 
-    if st.button("🎥 최종 9:16 비디오 렌더링 시작", type="primary", use_container_width=True):
-        if not status["scenes"]:
-            st.error("먼저 4번 탭에서 `scene_data.json` 자막 데이터를 생성해 주세요!")
-        else:
-            with st.spinner("Remotion Rspack 번들링 및 MP4 렌더링 진행 중 (수십 초 소요될 수 있습니다)..."):
-                cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
-                if no_audio_opt:
-                    cmd.append("--no-audio")
-                res = subprocess.run(cmd, capture_output=True, text=True)
-                if res.returncode == 0:
-                    st.success("렌더링이 성공적으로 완료되었습니다!")
-                    st.rerun()
-                else:
-                    st.error(f"렌더링 실패:\n{res.stderr or res.stdout}")
+    # 2. Remotion 자동 렌더링 섹션
+    with st.expander("⚙️ (대안) Remotion 코드로 9:16 비디오 자동 렌더링"):
+        st.markdown("자막 오버레이와 배경 비디오/에셋을 코드 기반으로 합성하여 렌더링합니다.")
+        bg_videos = glob.glob(os.path.join(current_project_path, "video*.mp4")) + \
+                    glob.glob(os.path.join(current_project_path, "background*.mp4")) + \
+                    glob.glob(os.path.join(current_project_path, "scene*.mp4"))
+        
+        col_v1, col_v2 = st.columns([2, 1])
+        with col_v1:
+            if bg_videos:
+                st.success(f"배경 비디오 소스 감지됨 ({len(bg_videos)}개)")
+            else:
+                st.info("💡 비디오 클립이 없으면 5번 탭에서 생성된 9:16 이미지들을 기반으로 렌더링됩니다.")
+        
+        with col_v2:
+            no_audio_opt = st.checkbox("배경 영상 원본 오디오 보존 (--no-audio)", value=False)
+
+        if st.button("🎥 Remotion 렌더링 실행", type="secondary", use_container_width=True):
+            if not status["scenes"]:
+                st.error("먼저 4번 탭에서 `scene_data.json` 자막 데이터를 생성해 주세요!")
+            else:
+                with st.spinner("Remotion Rspack 번들링 및 MP4 렌더링 진행 중..."):
+                    cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
+                    if no_audio_opt:
+                        cmd.append("--no-audio")
+                    res = subprocess.run(cmd, capture_output=True, text=True)
+                    if res.returncode == 0:
+                        st.success("렌더링이 성공적으로 완료되었습니다!")
+                        st.rerun()
+                    else:
+                        st.error(f"렌더링 실패:\n{res.stderr or res.stdout}")
 
     st.markdown("---")
-    st.markdown("#### 📺 완성된 쇼츠 비디오 플레이어")
+    st.markdown("#### 📺 최종 완성된 쇼츠 비디오 플레이어")
     
     output_video_path = os.path.join(current_project_path, "output.mp4")
     if os.path.exists(output_video_path):
-        col_vid, col_meta = st.columns([1, 1])
+        col_vid, col_meta = st.columns([1, 1.2])
         with col_vid:
             with open(output_video_path, "rb") as f:
                 video_bytes = f.read()
                 st.video(video_bytes)
         with col_meta:
-            st.success(f"파일명: `output.mp4`")
+            st.success(f"✅ 현재 등록된 최종 쇼츠: `output.mp4`")
             st.caption(f"파일 크기: {round(os.path.getsize(output_video_path) / (1024 * 1024), 2)} MB")
             with open(output_video_path, "rb") as f:
                 st.download_button(
@@ -799,10 +819,18 @@ with tab_video:
                     data=f,
                     file_name=f"{selected_folder}_shorts.mp4",
                     mime="video/mp4",
+                    type="primary",
                     use_container_width=True
                 )
+            
+            # 배포용 키트 확인 (유튜브 제목/해시태그)
+            pub_path = os.path.join(current_project_path, "publish_kit.md")
+            if os.path.exists(pub_path):
+                with st.expander("📋 유튜브/인스타 배포용 제목 & 설명문 복사"):
+                    with open(pub_path, "r", encoding="utf-8") as pf:
+                        st.markdown(pf.read())
     else:
-        st.info("아직 렌더링된 `output.mp4`가 없습니다. 위 렌더링 버튼을 눌러 쇼츠를 제작하세요.")
+        st.info("아직 등록된 최종 영상(`output.mp4`)이 없습니다. 위에서 캡컷 렌더링 영상을 업로드하거나 Remotion 렌더링을 실행하세요.")
 
 # ------------------------------------------------------------------
 # TAB 7: 에셋 및 미디어 업로더
