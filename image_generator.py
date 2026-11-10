@@ -1,7 +1,9 @@
 import os
 import sys
 import json
+import re
 import time
+import glob
 import urllib.parse
 import subprocess
 import requests
@@ -39,24 +41,38 @@ def generate_via_pollinations(prompt, output_path, width=1024, height=576, model
             
     raise RuntimeError("Pollinations 이미지 생성 서버 응답 실패")
 
-def generate_via_gemini_imagen(prompt, output_path, aspect_ratio="16:9"):
-    """Google Gemini Nano Banana / Imagen 모델을 통한 이미지 생성 (GEMINI_API_KEY 필요)"""
+def generate_via_gemini_imagen(prompt, output_path, aspect_ratio="16:9", ref_image_path=None):
+    """Google Gemini Nano Banana / Imagen 모델을 통한 이미지 생성 (GEMINI_API_KEY 필요, 실물 사진 멀티모달 참조)"""
     gemini_key = os.getenv("GEMINI_API_KEY")
     if not gemini_key:
         raise ValueError("GEMINI_API_KEY가 설정되지 않았습니다.")
         
     from google import genai
     from google.genai import types
+    from PIL import Image
     client = genai.Client(api_key=gemini_key)
     
     # 1순위: Gemini Nano Banana (Google AI Pro/Plus 기본 이미지 모델)
     try:
         ratio_desc = "horizontal 16:9 widescreen composition" if aspect_ratio == "16:9" else "vertical 9:16 mobile shorts composition"
-        full_prompt = f"{prompt}, {ratio_desc}, ultra photorealistic, high quality, 8k resolution"
+        full_prompt = (
+            f"Commercial advertising photography of the EXACT same product shown in the reference image. "
+            f"{prompt}, {ratio_desc}, ultra photorealistic, high quality, pristine studio lighting, 8k resolution, no text, no watermark."
+        )
+        
+        contents = [full_prompt]
+        if ref_image_path and os.path.exists(ref_image_path):
+            try:
+                ref_img = Image.open(ref_image_path)
+                contents = [ref_img, full_prompt]
+                print(f"[*] 실물 레퍼런스 사진 주입 완료: {os.path.basename(ref_image_path)}")
+            except Exception as ie:
+                print(f"[!] 레퍼런스 사진 로드 실패, 텍스트 프롬프트만 사용: {ie}")
+
         cfg = types.GenerateContentConfig(response_modalities=["IMAGE"])
         res = client.models.generate_content(
             model="gemini-nano-banana-2.1",
-            contents=full_prompt,
+            contents=contents,
             config=cfg
         )
         if res.candidates:
@@ -104,7 +120,34 @@ def run_crop_script(folder_path, is_faction=False):
         print(f"[!] 크롭 스크립트 경고: {res.stderr}")
     return res.returncode == 0
 
-def batch_generate_images(folder_path, engine="flux", mode="1x3_sheets", custom_prompts=None, progress_callback=None):
+def extract_prompts_from_file(prompts_file):
+    """prompts.md에서 6개 컷별 프롬프트를 정밀 추출"""
+    if not os.path.exists(prompts_file):
+        return []
+    with open(prompts_file, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    # 정규식을 통한 다양한 Cut 헤더 분할 (### Cut 1, Cut 1:, - Cut 1, 비트 1 등)
+    pattern = r'(?:^|\n)(?:#{1,4}\s*)?(?:\*{1,2})?(?:Cut|비트|컷)\s*\d+[^:\n]*[:\)]?\s*'
+    splits = re.split(pattern, text, flags=re.IGNORECASE)
+    prompts = [s.strip() for s in splits if s.strip()]
+    return prompts
+
+def get_product_name_from_plan(folder_path):
+    """plan.md에서 실제 제품명을 추출 (폴더 타임스탬프 대체)"""
+    plan_path = os.path.join(folder_path, "plan.md")
+    if os.path.exists(plan_path):
+        with open(plan_path, "r", encoding="utf-8") as f:
+            plan_text = f.read()
+        m = re.search(r'name:\s*["\']?([^"\']+)["\']?', plan_text)
+        if m:
+            return m.group(1).strip()
+        m_title = re.search(r'#\s*(.+)', plan_text)
+        if m_title:
+            return m_title.group(1).replace("기획안", "").replace("쇼핑쇼츠", "").strip()
+    return "Commercial Tech Product"
+
+def batch_generate_images(folder_path, engine="gemini", mode="1x3_sheets", custom_prompts=None, progress_callback=None):
     """
     쇼츠 영상용 에셋 일괄 생성:
     - mode="1x3_sheets": 1x3 가로 에셋 시트 2장(총 6컷) 생성 후 자동 9:16 크롭
@@ -113,33 +156,38 @@ def batch_generate_images(folder_path, engine="flux", mode="1x3_sheets", custom_
     assets_dir = os.path.join(folder_path, "assets")
     os.makedirs(assets_dir, exist_ok=True)
     
+    # 실물 레퍼런스 이미지 자동 감지
+    ref_image_path = None
+    ref_candidates = [
+        os.path.join(assets_dir, "ref_cut1.png"),
+        os.path.join(assets_dir, "ref_cut1.jpg"),
+        os.path.join(assets_dir, "ref_cut1.jpeg"),
+    ]
+    for cand in ref_candidates:
+        if os.path.exists(cand):
+            ref_image_path = cand
+            break
+    if not ref_image_path:
+        wildcards = glob.glob(os.path.join(assets_dir, "ref*.*"))
+        if wildcards:
+            ref_image_path = wildcards[0]
+            
+    if ref_image_path:
+        print(f"[*] 감지된 실물 제품 사진: {ref_image_path}")
+
     # 대본 및 프롬프트 파일 파싱
     prompts_file = os.path.join(folder_path, "prompts.md")
-    script_file = os.path.join(folder_path, "script.md")
     
     prompt_items = []
     if custom_prompts and isinstance(custom_prompts, list):
         prompt_items = custom_prompts
     elif os.path.exists(prompts_file):
-        with open(prompts_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        # 프롬프트 추출
-        current_prompt = []
-        for line in lines:
-            if line.strip().startswith("- ") or line.strip().startswith("Cut") or line.strip().startswith("비트"):
-                if current_prompt:
-                    prompt_items.append(" ".join(current_prompt))
-                    current_prompt = []
-                current_prompt.append(line.strip())
-            elif line.strip() and not line.startswith("#"):
-                current_prompt.append(line.strip())
-        if current_prompt:
-            prompt_items.append(" ".join(current_prompt))
+        prompt_items = extract_prompts_from_file(prompts_file)
 
-    # 기본 프롬프트 폴백
+    # 기본 프롬프트 폴백 (폴더명 대신 실제 제품명 기반)
     if len(prompt_items) < 6:
-        product_name = os.path.basename(folder_path)
-        base_subject = f"Commercial product photography of {product_name}, ultra realistic, 8k, studio lighting, highly detailed"
+        product_name = get_product_name_from_plan(folder_path)
+        base_subject = f"Commercial product photography of {product_name}, ultra realistic, 8k, pristine studio lighting, highly detailed"
         prompt_items = [
             f"{base_subject}, opening hero result shot, pristine condition, sharp focus",
             f"{base_subject}, contrasting before scene, problem depiction, subtle tension",
@@ -176,7 +224,7 @@ def batch_generate_images(folder_path, engine="flux", mode="1x3_sheets", custom_
             print(f"[*] [{engine.upper()}] {sheet_name} 생성 중...")
             if engine == "gemini":
                 try:
-                    generate_via_gemini_imagen(combined_prompt, out_sheet_path, aspect_ratio="16:9")
+                    generate_via_gemini_imagen(combined_prompt, out_sheet_path, aspect_ratio="16:9", ref_image_path=ref_image_path)
                 except Exception as e:
                     print(f"[!] Gemini Imagen 실패, FLUX로 대체: {e}")
                     generate_via_pollinations(combined_prompt, out_sheet_path, width=1280, height=720)
@@ -207,7 +255,7 @@ def batch_generate_images(folder_path, engine="flux", mode="1x3_sheets", custom_
             print(f"[*] [{engine.upper()}] {cut_filename} 생성 중...")
             if engine == "gemini":
                 try:
-                    generate_via_gemini_imagen(clean_prompt, out_cut_path, aspect_ratio="9:16")
+                    generate_via_gemini_imagen(clean_prompt, out_cut_path, aspect_ratio="9:16", ref_image_path=ref_image_path)
                 except Exception:
                     generate_via_pollinations(clean_prompt, out_cut_path, width=576, height=1024)
             else:
