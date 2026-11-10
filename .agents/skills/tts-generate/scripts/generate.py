@@ -77,10 +77,11 @@ def generate_gemini_tts(text, temp_file, voice=DEFAULT_GEMINI_VOICE, model="gemi
             )
         )
     )
-    prompt = f"다음 쇼츠 대본을 감정과 딕션을 살려 자연스러운 한국어로 낭독해줘. 다른 설명이나 멘트는 일체 넣지 마:\n\n{text}"
+    # 순수 대본 텍스트만 전달 (TTS 전용 모델은 안내 문구까지 소리 내어 읽으므로 대본 본문만 전달해야 함)
+    clean_text = text.strip()
     response = client.models.generate_content(
         model=model,
-        contents=prompt,
+        contents=clean_text,
         config=config
     )
     
