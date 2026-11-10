@@ -32,7 +32,7 @@ from image_generator import batch_generate_images
 
 # 페이지 기본 설정
 st.set_page_config(
-    page_title="Product Shorts Studio Dashboard",
+    page_title="Lowcost ShopShorts namdarunAi",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -53,6 +53,60 @@ st.markdown("""
 # ------------------------------------------------------------------
 # 유틸리티 함수
 # ------------------------------------------------------------------
+def ensure_capcut_package(folder_path):
+    """CapCut 전용 00_음성, 01~06_이미지, subtitles.srt 패키지 자동 생성"""
+    capcut_dir = os.path.join(folder_path, "capcut_assets")
+    os.makedirs(capcut_dir, exist_ok=True)
+    
+    # 1. 오디오 복사
+    for wav_name in ["output_1.2x.wav", "output_1.5x.wav", "output.wav"]:
+        w_path = os.path.join(folder_path, wav_name)
+        if os.path.exists(w_path):
+            import shutil
+            shutil.copyfile(w_path, os.path.join(capcut_dir, "00_voiceover.wav"))
+            break
+            
+    # 2. 6컷 이미지 번호순 복사
+    cut_labels = [
+        ("cut1_9_16.jpg", "01_Cut1_Hook.jpg"),
+        ("cut2_9_16.jpg", "02_Cut2_Before.jpg"),
+        ("cut3_9_16.jpg", "03_Cut3_Hero.jpg"),
+        ("cut4_9_16.jpg", "04_Cut4_Action.jpg"),
+        ("cut5_9_16.jpg", "05_Cut5_Proof.jpg"),
+        ("cut6_9_16.jpg", "06_Cut6_CTA.jpg")
+    ]
+    for src, dst in cut_labels:
+        sp = os.path.join(folder_path, "assets", src)
+        if os.path.exists(sp):
+            import shutil
+            shutil.copyfile(sp, os.path.join(capcut_dir, dst))
+            
+    # 3. CapCut 로컬 자막용 subtitles.srt 생성
+    scene_file = os.path.join(folder_path, "scene_data.json")
+    if os.path.exists(scene_file):
+        try:
+            with open(scene_file, "r", encoding="utf-8") as f:
+                scenes = json.load(f)
+            def fmt_t(sec):
+                h = int(sec // 3600)
+                m = int((sec % 3600) // 60)
+                s = int(sec % 60)
+                ms = int((sec - int(sec)) * 1000)
+                return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+            srt_lines = []
+            for i, sc in enumerate(scenes):
+                t_str = " ".join([b["text"] for b in sc.get("text_blocks", [])])
+                srt_lines.append(f"{i+1}\n{fmt_t(sc['start'])} --> {fmt_t(sc['end'])}\n{t_str}\n")
+            with open(os.path.join(capcut_dir, "subtitles.srt"), "w", encoding="utf-8") as f:
+                f.write("\n".join(srt_lines))
+        except Exception:
+            pass
+            
+    zip_base = os.path.join(folder_path, "capcut_package")
+    import shutil
+    shutil.make_archive(zip_base, "zip", capcut_dir)
+    return zip_base + ".zip"
+
 def get_project_folders():
     if not os.path.exists(OUTPUTS_DIR):
         os.makedirs(OUTPUTS_DIR, exist_ok=True)
@@ -78,7 +132,7 @@ def check_project_status(folder_path):
 # 사이드바: 프로젝트 탐색 & 환경 설정 상태
 # ------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 🎬 Shorts Studio")
+    st.markdown("### 🎬 Loco Shorts")
     st.markdown("---")
 
     folders = get_project_folders()
@@ -790,3 +844,27 @@ with tab_assets:
                 st.image(img_p, caption=os.path.basename(img_p), use_container_width=True)
     else:
         st.info("현재 저장된 이미지 에셋이 없습니다.")
+
+    st.markdown("---")
+    st.markdown("#### 🎬 CapCut(캡컷) 편집 패키지 원클릭 다운로드")
+    st.caption("음성 파일 + 9:16 이미지 6컷 + 자막 싱크 파일(`subtitles.srt`)이 모두 포함된 CapCut 전용 패키지입니다.")
+    
+    col_cp1, col_cp2 = st.columns([1.5, 1])
+    with col_cp1:
+        if st.button("📦 CapCut 최신 패키지 빌드 / 갱신", use_container_width=True):
+            ensure_capcut_package(current_project_path)
+            st.success("CapCut 패키지 갱신 완료!")
+            st.rerun()
+            
+    capcut_zip_path = os.path.join(current_project_path, "capcut_package.zip")
+    if os.path.exists(capcut_zip_path):
+        with col_cp2:
+            with open(capcut_zip_path, "rb") as zf:
+                st.download_button(
+                    label="📥 CapCut 풀 패키지 (.zip) 다운로드",
+                    data=zf,
+                    file_name=f"{selected_folder}_capcut_package.zip",
+                    mime="application/zip",
+                    type="primary",
+                    use_container_width=True
+                )
