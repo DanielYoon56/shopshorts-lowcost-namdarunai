@@ -35,11 +35,13 @@ RENDER_SCRIPT = os.path.join(PROJECT_ROOT, ".agents", "skills", "remotion-render
 import importlib
 import ai_researcher
 importlib.reload(ai_researcher)
-from ai_researcher import run_product_research, save_research_artifacts
+from ai_researcher import run_product_research, save_research_artifacts, ingest_coupang_page, load_coupang_data, run_coupang_ocr
+sys.path.insert(0, os.path.dirname(STT_ALIGN_SCRIPT))
+from srt_writer import write_srt
 
 import image_generator
 importlib.reload(image_generator)
-from image_generator import batch_generate_images
+from image_generator import batch_generate_images, sync_sequential_images
 
 # 페이지 기본 설정
 st.set_page_config(
@@ -64,59 +66,47 @@ st.markdown("""
 # ------------------------------------------------------------------
 # 유틸리티 함수
 # ------------------------------------------------------------------
-def ensure_capcut_package(folder_path):
-    """assets 폴더 내 CapCut 및 편집용 00_음성, 01~06_이미지, subtitles.srt 생성 및 패키지화"""
+def capcut_input_files(folder_path):
+    """CapCut 투입 파일 = 6컷 이미지(순차) + 동영상 클립 + 음성 wav + subtitles.srt (모두 프로젝트 폴더/하부 폴더에 압축 없이 존재).
+
+    - 이미지: 01_Cut1 ~ 06_Cut6 순차 컷 (assets/ 및 images/ 폴더)
+    - 동영상: video*.mp4 / scene*.mp4 / background*.mp4 (트랜스코딩 전 원본 *.orig.mp4, 최종 렌더 output.mp4 제외)
+    - 음성: Whisper 자막 싱크에 쓴 것과 같은 우선순위 (1.2x → 1.5x → 원본)
+    """
+    videos = []
+    for pattern in ("video*.mp4", "scene*.mp4", "background*.mp4"):
+        for p in sorted(glob.glob(os.path.join(folder_path, pattern))):
+            if not p.endswith(".orig.mp4") and p not in videos:
+                videos.append(p)
+    voice = next(
+        (os.path.join(folder_path, n) for n in ("output_1.2x.wav", "output_1.5x.wav", "output.wav")
+         if os.path.exists(os.path.join(folder_path, n))),
+        None,
+    )
+    srt = os.path.join(folder_path, "subtitles.srt")
+
+    # 순차 이미지 목록
     assets_dir = os.path.join(folder_path, "assets")
-    os.makedirs(assets_dir, exist_ok=True)
-    import shutil
-    
-    # 1. 오디오 복사 (assets/00_voiceover.wav)
-    for wav_name in ["output_1.2x.wav", "output_1.5x.wav", "output.wav"]:
-        w_path = os.path.join(folder_path, wav_name)
-        if os.path.exists(w_path):
-            shutil.copyfile(w_path, os.path.join(assets_dir, "00_voiceover.wav"))
-            break
-            
-    # 2. 6컷 이미지 번호순 복사 (assets/01_Cut1_Hook.jpg ~ 06_Cut6_CTA.jpg)
-    cut_labels = [
-        ("cut1_9_16.jpg", "01_Cut1_Hook.jpg"),
-        ("cut2_9_16.jpg", "02_Cut2_Before.jpg"),
-        ("cut3_9_16.jpg", "03_Cut3_Hero.jpg"),
-        ("cut4_9_16.jpg", "04_Cut4_Action.jpg"),
-        ("cut5_9_16.jpg", "05_Cut5_Proof.jpg"),
-        ("cut6_9_16.jpg", "06_Cut6_CTA.jpg")
-    ]
-    for src, dst in cut_labels:
-        sp = os.path.join(assets_dir, src)
-        dp = os.path.join(assets_dir, dst)
-        if os.path.exists(sp):
-            shutil.copyfile(sp, dp)
-            
-    # 3. CapCut 로컬 자막용 subtitles.srt 생성 (assets/subtitles.srt)
-    scene_file = os.path.join(folder_path, "scene_data.json")
-    if os.path.exists(scene_file):
-        try:
-            with open(scene_file, "r", encoding="utf-8") as f:
-                scenes = json.load(f)
-            def fmt_t(sec):
-                h = int(sec // 3600)
-                m = int((sec % 3600) // 60)
-                s = int(sec % 60)
-                ms = int((sec - int(sec)) * 1000)
-                return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
-            srt_lines = []
-            for i, sc in enumerate(scenes):
-                t_str = " ".join([b["text"] for b in sc.get("text_blocks", [])])
-                srt_lines.append(f"{i+1}\n{fmt_t(sc['start'])} --> {fmt_t(sc['end'])}\n{t_str}\n")
-            with open(os.path.join(assets_dir, "subtitles.srt"), "w", encoding="utf-8") as f:
-                f.write("\n".join(srt_lines))
-        except Exception:
-            pass
-            
-    # 4. assets 폴더를 capcut_package.zip으로 압축
-    zip_base = os.path.join(folder_path, "capcut_package")
-    shutil.make_archive(zip_base, "zip", assets_dir)
-    return zip_base + ".zip"
+    images_dir = os.path.join(folder_path, "images")
+    sync_sequential_images(folder_path)
+    seq_images = sorted(glob.glob(os.path.join(images_dir, "0[1-6]_Cut*.jpg")))
+    if not seq_images:
+        seq_images = sorted(glob.glob(os.path.join(assets_dir, "0[1-6]_Cut*.jpg")))
+    if not seq_images:
+        seq_images = sorted(glob.glob(os.path.join(assets_dir, "cut*_9_16.jpg")))
+
+    return {"videos": videos, "voice": voice, "srt": srt if os.path.exists(srt) else None, "images": seq_images}
+
+
+def refresh_capcut_files(folder_path):
+    """SRT 를 최신 scene_data.json 으로 재생성 (자막을 손으로 고친 경우용). 압축은 하지 않는다."""
+    if os.path.exists(os.path.join(folder_path, "scene_data.json")):
+        write_srt(folder_path)
+    # 예전 방식의 압축 패키지는 오래된 내용이라 혼동을 막기 위해 제거
+    old_zip = os.path.join(folder_path, "capcut_package.zip")
+    if os.path.exists(old_zip):
+        os.remove(old_zip)
+    return capcut_input_files(folder_path)
 
 def get_project_folders():
     if not os.path.exists(OUTPUTS_DIR):
@@ -391,6 +381,89 @@ with tab_research:
             st.info("등록된 실물 사진의 색상, 버튼, LED 인디케이터 등의 시각적 특성이 AI 기획안 및 6개 컷 비주얼 프롬프트에 자동 반영됩니다.")
 
     st.markdown("---")
+    st.markdown("#### 🛒 쿠팡 상품 상세 가져오기 (coupang-crawler 스킬)")
+    st.caption("쿠팡은 자동 요청을 차단하므로, 크롬에서 상품 페이지를 연 뒤 맨 아래까지 스크롤하고 Ctrl+S → '웹페이지, 단일 파일(.mhtml)'로 저장한 파일을 올려 주세요.")
+    coupang_file = st.file_uploader(
+        "저장한 쿠팡 상품 페이지 (.mhtml / .html)",
+        type=["mhtml", "mht", "html", "htm"],
+        key="coupang_page_uploader"
+    )
+    if coupang_file is not None and st.session_state.get("coupang_ingested") != (selected_folder, coupang_file.file_id):
+        import tempfile
+        suffix = os.path.splitext(coupang_file.name)[1] or ".html"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(coupang_file.getbuffer())
+            tmp_path = tmp.name
+        try:
+            ingest_coupang_page(tmp_path, current_project_path)
+            st.session_state["coupang_ingested"] = (selected_folder, coupang_file.file_id)
+            st.success("쿠팡 상품 상세 수집 완료: `coupang-product.json`")
+        except Exception as e:
+            st.error(f"쿠팡 페이지 파싱 실패: {e}")
+        finally:
+            os.remove(tmp_path)
+
+    coupang_data = load_coupang_data(current_project_path)
+    if coupang_data:
+        cf = coupang_data.get("fields", {})
+        col_cp1, col_cp2 = st.columns([1, 3])
+        with col_cp1:
+            if cf.get("gallery_images"):
+                st.image(cf["gallery_images"][0], width=180)
+        with col_cp2:
+            st.markdown(f"**{cf.get('title', '')}**")
+            if cf.get("brand"):
+                st.caption(cf["brand"])
+            price_line = f"{cf['sale_price']:,}원" if cf.get("sale_price") else "가격 정보 없음"
+            if cf.get("original_price"):
+                price_line += f" (정가 {cf['original_price']:,}원 {cf.get('discount_rate', '')})"
+            st.markdown(price_line)
+            if cf.get("rating") or cf.get("review_count"):
+                st.markdown(f"⭐ {cf.get('rating', '-')} · 리뷰 {cf.get('review_count') or 0:,}개")
+            st.caption(f"옵션 {len(cf.get('options', []))} · 표기정보 {len(cf.get('specs', []))} · 썸네일 {len(cf.get('gallery_images', []))} · 상세이미지 {len(cf.get('detail_images', []))}")
+            for note in coupang_data.get("notes", []):
+                st.caption(f"ℹ️ {note}")
+        # 상세 이미지 OCR (LLM 미사용, RapidOCR CPU)
+        detail_dir = os.path.join(current_project_path, "assets", "coupang_detail")
+        n_detail_files = len(os.listdir(detail_dir)) if os.path.isdir(detail_dir) else 0
+        col_ocr1, col_ocr2 = st.columns([1, 2])
+        with col_ocr1:
+            run_ocr = st.button(
+                f"🔎 상세 이미지 {n_detail_files}장 OCR 스펙 추출",
+                disabled=n_detail_files == 0,
+                use_container_width=True,
+                help="상세 이미지 속 글자를 읽어 소비전력·단계·타이머·인증·구매주의 등을 뽑습니다 (이미지 10장 기준 약 40초)."
+            )
+        with col_ocr2:
+            if n_detail_files == 0:
+                st.caption("상세 이미지 원본이 없습니다. '.mhtml(단일 파일)'로 저장해 올리면 OCR을 쓸 수 있습니다.")
+        if run_ocr:
+            with st.spinner("상세 이미지 OCR 중... (CPU, 이미지 10장 기준 약 40초)"):
+                try:
+                    run_coupang_ocr(current_project_path)
+                    coupang_data = load_coupang_data(current_project_path)
+                except Exception as e:
+                    st.error(f"OCR 실패: {e}")
+
+        ocr = coupang_data.get("ocr")
+        if ocr:
+            st.markdown(f"**🔎 상세 이미지 OCR 결과** ({ocr.get('elapsed_sec', '?')}초)")
+            for c in ocr.get("conflicts", []):
+                st.warning(f"불일치: {c}")
+            for n in ocr.get("purchase_notes", []):
+                st.warning(f"구매 주의: {n['type']} — \"{n['evidence']}\"")
+            if ocr.get("specs"):
+                st.table([{"항목": s["type"], "값": s["value"], "원문": s["evidence"], "이미지": s["image"]} for s in ocr["specs"]])
+            tags = [f["type"] for f in ocr.get("features", [])] + [f"인증 {c['type']}" for c in ocr.get("certifications", [])]
+            if tags:
+                st.markdown(" · ".join(f"`{t}`" for t in tags))
+            st.caption("OCR 기반 후보입니다. 영상에 쓰기 전 근거 이미지를 확인하세요.")
+
+        with st.expander("수집된 원본 JSON 보기"):
+            st.json(coupang_data)
+        st.info("이 정보는 AI 기획 시 PRODUCT_TRUTH 사실 데이터로 자동 반영됩니다.")
+
+    st.markdown("---")
     st.markdown("#### 📝 제품 상세 및 대본 입력")
     
     custom_script_content = ""
@@ -455,7 +528,8 @@ with tab_research:
                             category=category_choice if "직접 입력" not in input_mode else "자동 감지",
                             model_choice=model_choice.split(" ")[0] if "직접 입력" not in input_mode else "auto",
                             image_path=ref_image_path if os.path.exists(ref_image_path) else None,
-                            custom_script=custom_script_content if "직접 입력" in input_mode else None
+                            custom_script=custom_script_content if "직접 입력" in input_mode else None,
+                            coupang_data=coupang_data
                         )
                         save_research_artifacts(current_project_path, res)
                         st.success("🎉 AI 제품 기획 및 대본 저장이 완료되었습니다! (2번 탭에서 확인)")
@@ -484,7 +558,8 @@ with tab_research:
                         category=category_choice if "직접 입력" not in input_mode else "자동 감지",
                         model_choice=model_choice.split(" ")[0] if "직접 입력" not in input_mode else "auto",
                         image_path=ref_image_path if os.path.exists(ref_image_path) else None,
-                        custom_script=custom_script_content if "직접 입력" in input_mode else None
+                        custom_script=custom_script_content if "직접 입력" in input_mode else None,
+                        coupang_data=coupang_data
                     )
                     save_research_artifacts(current_project_path, res)
                     
@@ -691,7 +766,7 @@ with tab_subtitles:
                 cmd = [sys.executable, STT_ALIGN_SCRIPT, current_project_path]
                 res = subprocess.run(cmd, capture_output=True, text=True)
                 if res.returncode == 0:
-                    st.success("자막 싱크 분할 완료!")
+                    st.success("자막 싱크 분할 완료! (`scene_data.json` + `subtitles.srt` 갱신)")
                     st.rerun()
                 else:
                     st.error(f"오류 발생:\n{res.stderr or res.stdout}")
@@ -808,16 +883,73 @@ with tab_images:
             st.error(f"이미지 생성 중 오류 발생: {e}")
 
     st.markdown("---")
-    st.markdown("#### 🖼️ 생성된 9:16 쇼츠 컷 에셋 갤러리 (`assets/cut*_9_16.jpg`)")
+    st.markdown("#### 🖼️ 생성된 9:16 쇼츠 컷 에셋 갤러리 (`assets/` 및 `images/` 순차 저장)")
     
-    # 생성된 9:16 컷 탐색
-    cut_images = sorted(glob.glob(os.path.join(current_project_path, "assets", "cut*_9_16.jpg")))
+    # 순차 에셋 동기화 실행
+    sync_sequential_images(current_project_path)
+
+    # 순차 컷 파일 우선 탐색 (01_Cut1 ~ 06_Cut6 또는 cut*_9_16)
+    cut_images = sorted(glob.glob(os.path.join(current_project_path, "assets", "0[1-6]_Cut*.jpg")))
+    if not cut_images:
+        cut_images = sorted(glob.glob(os.path.join(current_project_path, "assets", "cut*_9_16.jpg")))
     if not cut_images:
         cut_images = sorted(glob.glob(os.path.join(current_project_path, "assets", "*.jpg")) + glob.glob(os.path.join(current_project_path, "assets", "*.png")))
         
     if cut_images:
-        st.success(f"총 {len(cut_images)}개 9:16 에셋 준비 완료 (쇼츠 배경 및 I2V 영상 원본으로 즉시 사용 가능)")
+        st.success(f"총 {len(cut_images)}개 9:16 에셋 준비 완료 (압축 없이 `assets/` 및 `images/` 하부 폴더에 순차 저장됨)")
         
+        # 순차 일괄 다운로드 및 폴더 열기 액션 바
+        col_act1, col_act2, col_act3 = st.columns([1, 1, 1.6])
+        with col_act1:
+            if st.button("📂 하부 assets 폴더 열기", use_container_width=True, disabled=not hasattr(os, "startfile")):
+                a_dir = os.path.join(current_project_path, "assets")
+                os.startfile(a_dir if os.path.exists(a_dir) else current_project_path)
+        with col_act2:
+            if st.button("📁 하부 images 폴더 열기", use_container_width=True, disabled=not hasattr(os, "startfile")):
+                i_dir = os.path.join(current_project_path, "images")
+                os.startfile(i_dir if os.path.exists(i_dir) else current_project_path)
+        with col_act3:
+            import base64
+            seq_b64 = []
+            for cp in cut_images[:6]:
+                try:
+                    with open(cp, "rb") as bf:
+                        b64_str = base64.b64encode(bf.read()).decode("utf-8")
+                        seq_b64.append({"name": os.path.basename(cp), "data": f"data:image/jpeg;base64,{b64_str}"})
+                except Exception:
+                    pass
+            if seq_b64:
+                b64_json = json.dumps(seq_b64)
+                st.components.v1.html(f"""
+                <div style="font-family: sans-serif;">
+                    <button id="dl_seq_btn" style="width:100%; padding:9px 12px; background:#2563eb; color:white; border:none; border-radius:6px; font-weight:600; cursor:pointer; font-size:13px;">
+                        📥 6개 컷 브라우저 순차 다운로드 (압축 없음)
+                    </button>
+                    <div id="dl_seq_msg" style="font-size:11px; color:#4b5563; margin-top:4px; font-weight:500;"></div>
+                </div>
+                <script>
+                const files = {b64_json};
+                document.getElementById('dl_seq_btn').addEventListener('click', () => {{
+                    const msg = document.getElementById('dl_seq_msg');
+                    msg.innerText = '⏳ 순차 다운로드 시작...';
+                    files.forEach((f, idx) => {{
+                        setTimeout(() => {{
+                            const a = document.createElement('a');
+                            a.href = f.data;
+                            a.download = f.name;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            msg.innerText = `[${{idx+1}}/${{files.length}}] ${{f.name}} 다운로드 중...`;
+                            if (idx === files.length - 1) {{
+                                setTimeout(() => {{ msg.innerText = '✅ 6개 컷 다운로드 완료! (압축 없음)'; }}, 500);
+                            }}
+                        }}, idx * 450);
+                    }});
+                }});
+                </script>
+                """, height=65)
+
         cut_labels = [
             "Cut 1: 결과 선공개 (Hook)",
             "Cut 2: 대비 (Before/Problem)",
@@ -832,7 +964,7 @@ with tab_images:
         for i, cut_p in enumerate(cut_images[:6]):
             with cols[i % 3]:
                 label = cut_labels[i] if i < len(cut_labels) else os.path.basename(cut_p)
-                st.image(cut_p, caption=label, use_container_width=True)
+                st.image(cut_p, caption=f"{os.path.basename(cut_p)}\n({label})", use_container_width=True)
                 with open(cut_p, "rb") as f:
                     st.download_button(
                         label=f"📥 {os.path.basename(cut_p)} 다운로드",
@@ -998,25 +1130,42 @@ with tab_assets:
         st.info("현재 저장된 이미지 에셋이 없습니다.")
 
     st.markdown("---")
-    st.markdown("#### 🎬 CapCut(캡컷) 편집 패키지 원클릭 다운로드")
-    st.caption("음성 파일 + 9:16 이미지 6컷 + 자막 싱크 파일(`subtitles.srt`)이 `assets/` 폴더에 생성 및 압축된 패키지입니다.")
-    
-    col_cp1, col_cp2 = st.columns([1.5, 1])
+    st.markdown("#### 🎬 CapCut(캡컷) 투입 파일 (압축 없음)")
+    st.caption(f"6컷 이미지 + 동영상 클립 + 음성 + 자막(SRT)이 압축 없이 프로젝트 하부 폴더(`assets/`, `images/`)에 순차로 저장되어 있습니다. CapCut이나 외부 편집기에서 이 파일들을 순서대로 바로 가져오세요.")
+
+    capcut = capcut_input_files(current_project_path)
+    rows = []
+    if capcut.get("images"):
+        img_names = ", ".join([os.path.basename(im) for im in capcut["images"][:6]])
+        rows.append({"구분": "이미지 (6컷 순차)", "파일": f"✅ {len(capcut['images'])}개 ({img_names})"})
+    else:
+        rows.append({"구분": "이미지 (6컷 순차)", "파일": "❌ 없음 (5번 탭에서 6개 씬 이미지 일괄 생성 필요)"})
+
+    if capcut["videos"]:
+        for v in capcut["videos"]:
+            rows.append({"구분": "동영상", "파일": os.path.basename(v)})
+    else:
+        rows.append({"구분": "동영상", "파일": "ℹ️ 6컷 이미지 또는 외부 클립(video*.mp4) 사용 가능"})
+
+    rows.append({"구분": "음성", "파일": os.path.basename(capcut["voice"]) if capcut["voice"] else "❌ 없음 (3번 탭 TTS)"})
+    rows.append({"구분": "자막 SRT", "파일": "subtitles.srt" if capcut["srt"] else "❌ 없음 (4번 탭 Whisper 자막 싱크)"})
+
+    st.table(rows)
+
+    col_cp1, col_cp2, col_cp3 = st.columns([1, 1, 1])
     with col_cp1:
-        if st.button("📦 CapCut 최신 패키지 빌드 / 갱신", use_container_width=True):
-            ensure_capcut_package(current_project_path)
-            st.success("CapCut 패키지 갱신 완료!")
-            st.rerun()
-            
-    capcut_zip_path = os.path.join(current_project_path, "capcut_package.zip")
-    if os.path.exists(capcut_zip_path):
-        with col_cp2:
-            with open(capcut_zip_path, "rb") as zf:
-                st.download_button(
-                    label="📥 CapCut 풀 패키지 (.zip) 다운로드",
-                    data=zf,
-                    file_name=f"{selected_folder}_capcut_package.zip",
-                    mime="application/zip",
-                    type="primary",
-                    use_container_width=True
-                )
+        if st.button("📂 프로젝트 폴더 열기", use_container_width=True, disabled=not hasattr(os, "startfile")):
+            os.startfile(current_project_path)
+    with col_cp2:
+        if st.button("🖼️ 하부 이미지 폴더 열기 (`assets/`)", use_container_width=True, disabled=not hasattr(os, "startfile")):
+            a_dir = os.path.join(current_project_path, "assets")
+            os.startfile(a_dir if os.path.exists(a_dir) else current_project_path)
+    with col_cp3:
+        if st.button("🔄 순차 에셋 / SRT 동기화", use_container_width=True):
+            try:
+                refresh_capcut_files(current_project_path)
+                sync_sequential_images(current_project_path)
+                st.success("순차 에셋 및 subtitles.srt 동기화 완료!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"동기화 실패: {e}")

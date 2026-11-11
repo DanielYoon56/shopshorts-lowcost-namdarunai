@@ -134,6 +134,27 @@ def crop_asset_sheet(folder_path, is_faction=False):
         total_saved += saved
 
     print(f"[✓] 에셋 시트 분할 및 9:16 보정 완료! 총 {total_saved}개 에셋이 {assets_dir}에 저장되었습니다.")
+
+    # 순차적 네이밍 에셋을 assets/ 및 images/ 하부 폴더에 동시 동기화
+    import shutil
+    images_dir = os.path.join(folder_path, "images")
+    os.makedirs(images_dir, exist_ok=True)
+    labels = [
+        (f"{prefix}1_9_16.jpg", "01_Cut1_Hook.jpg"),
+        (f"{prefix}2_9_16.jpg", "02_Cut2_Before.jpg"),
+        (f"{prefix}3_9_16.jpg", "03_Cut3_Hero.jpg"),
+        (f"{prefix}4_9_16.jpg", "04_Cut4_Action.jpg"),
+        (f"{prefix}5_9_16.jpg", "05_Cut5_Proof.jpg"),
+        (f"{prefix}6_9_16.jpg", "06_Cut6_CTA.jpg")
+    ]
+    for src_name, dst_name in labels:
+        sp = os.path.join(assets_dir, src_name)
+        if os.path.exists(sp):
+            for t_dir in (assets_dir, images_dir):
+                dp = os.path.join(t_dir, dst_name)
+                shutil.copyfile(sp, dp)
+            print(f"  [+] 순차 에셋 동기화: {dst_name}")
+
     return True
 
 if __name__ == "__main__":

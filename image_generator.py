@@ -147,6 +147,36 @@ def get_product_name_from_plan(folder_path):
             return m_title.group(1).replace("기획안", "").replace("쇼핑쇼츠", "").strip()
     return "Commercial Tech Product"
 
+def sync_sequential_images(folder_path):
+    """
+    프로젝트 내 생성된 6컷 이미지를 압축 없이 순차 파일명(01_Cut1_Hook.jpg ~ 06_Cut6_CTA.jpg)으로
+    하부 에셋 및 이미지 폴더(assets/, images/)에 배치/동기화합니다.
+    """
+    import shutil
+    assets_dir = os.path.join(folder_path, "assets")
+    images_dir = os.path.join(folder_path, "images")
+    os.makedirs(assets_dir, exist_ok=True)
+    os.makedirs(images_dir, exist_ok=True)
+
+    cut_map = [
+        ("cut1_9_16.jpg", "01_Cut1_Hook.jpg"),
+        ("cut2_9_16.jpg", "02_Cut2_Before.jpg"),
+        ("cut3_9_16.jpg", "03_Cut3_Hero.jpg"),
+        ("cut4_9_16.jpg", "04_Cut4_Action.jpg"),
+        ("cut5_9_16.jpg", "05_Cut5_Proof.jpg"),
+        ("cut6_9_16.jpg", "06_Cut6_CTA.jpg")
+    ]
+    synced = []
+    for src_name, dst_name in cut_map:
+        sp = os.path.join(assets_dir, src_name)
+        if os.path.exists(sp):
+            for target_dir in (assets_dir, images_dir):
+                dp = os.path.join(target_dir, dst_name)
+                if not os.path.exists(dp) or os.path.getmtime(sp) > os.path.getmtime(dp):
+                    shutil.copyfile(sp, dp)
+            synced.append(os.path.join(assets_dir, dst_name))
+    return synced
+
 def batch_generate_images(folder_path, engine="gemini", mode="1x3_sheets", custom_prompts=None, progress_callback=None):
     """
     쇼츠 영상용 에셋 일괄 생성:
@@ -264,6 +294,9 @@ def batch_generate_images(folder_path, engine="gemini", mode="1x3_sheets", custo
             generated_files.append(out_cut_path)
             time.sleep(1)
 
-    print("[+] 모든 컷 이미지 일괄 생성 완료!")
+    # 순차 파일명(01_Cut1_Hook.jpg ~ 06_Cut6_CTA.jpg)으로 assets/ 및 images/ 폴더 동기화
+    sync_sequential_images(folder_path)
+
+    print("[+] 모든 컷 이미지 일괄 생성 및 순차 에셋 동기화 완료!")
     return generated_files
 
