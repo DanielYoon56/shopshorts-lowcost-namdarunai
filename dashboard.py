@@ -324,6 +324,26 @@ with st.sidebar:
                 st.rerun()
 
     st.markdown("---")
+    st.markdown("#### 🎨 이미지 생성 엔진 선택")
+    g_key = os.getenv("GEMINI_API_KEY")
+    sidebar_img_choice = st.radio(
+        "사용할 AI 이미지 엔진",
+        options=["무료 FLUX (무제한/API키 불필요)", "Google Gemini (Imagen/실물 레퍼런스)"],
+        index=0,
+        key="sidebar_img_engine_radio",
+        help="• 무료 FLUX: Pollinations.ai 무료 서버를 통해 API 키 없이 무제한으로 고속 생성합니다.\n• Google Gemini: GEMINI_API_KEY를 사용하여 첨부된 실물 사진을 레퍼런스로 반영하여 생성합니다."
+    )
+    selected_img_engine = "flux" if "FLUX" in sidebar_img_choice else "gemini"
+    st.session_state["global_image_engine"] = selected_img_engine
+    if selected_img_engine == "gemini":
+        if g_key and len(g_key) > 5:
+            st.caption("✨ Gemini 실물 사진 레퍼런스 모드 활성화됨")
+        else:
+            st.caption("⚠️ Gemini 키 미설정 시 FLUX로 자동 대체됩니다.")
+    else:
+        st.caption("⚡ 완전 무료 FLUX.1 무제한 고속 생성 모드")
+
+    st.markdown("---")
     st.markdown("#### ⚙️ 시스템 상태")
     
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -700,12 +720,13 @@ with tab_research:
                     subprocess.run(stt_cmd, check=True, capture_output=True, text=True)
                     
                     # 4. 이미지 6컷 일괄 생성 및 9:16 자동 분할
-                    full_status.markdown("🔄 **[4단계]** Google Gemini Nano Banana 1x3 에셋 시트 생성 및 9:16 자동 스마트 크롭 중...")
+                    active_img_eng = st.session_state.get("global_image_engine", selected_img_engine)
+                    eng_label = "무료 FLUX.1" if active_img_eng == "flux" else "Google Gemini"
+                    full_status.markdown(f"🔄 **[4단계]** {eng_label} 1x3 에셋 시트 생성 및 9:16 자동 스마트 크롭 중...")
                     full_prog.progress(0.75)
-                    img_eng = "gemini" if os.getenv("GEMINI_API_KEY") else "flux"
                     batch_generate_images(
                         folder_path=current_project_path,
-                        engine=img_eng,
+                        engine=active_img_eng,
                         mode="1x3_sheets"
                     )
 
@@ -947,18 +968,15 @@ with tab_images:
 
     col_im1, col_im2 = st.columns([1.2, 1.2])
     with col_im1:
-        has_gemini = bool(os.getenv("GEMINI_API_KEY"))
-        img_engine_options = (
-            ["Google Gemini Nano Banana (Google AI Pro/Plus, 초고화질 추천)", "FLUX.1 (Pollinations 무료/무제한)"]
-            if has_gemini
-            else ["FLUX.1 (초고화질 / 무료 / 즉시 사용, 추천)", "Google Gemini Nano Banana (GEMINI_API_KEY 필요)"]
+        cur_global_engine = st.session_state.get("global_image_engine", selected_img_engine)
+        def_idx = 0 if cur_global_engine == "flux" else 1
+        img_engine = st.radio(
+            "이미지 생성 AI 엔진 (좌측 사이드바 메뉴 연동)",
+            options=["무료 FLUX (Pollinations 무료/무제한)", "Google Gemini (Imagen/실물 레퍼런스)"],
+            index=def_idx,
+            key=f"tab5_img_engine_radio_{selected_folder}"
         )
-        img_engine = st.selectbox(
-            "이미지 생성 AI 엔진",
-            img_engine_options,
-            index=0
-        )
-        img_engine_code = "gemini" if "Gemini" in img_engine else "flux"
+        img_engine_code = "flux" if "FLUX" in img_engine else "gemini"
 
     with col_im2:
         img_mode = st.selectbox(
