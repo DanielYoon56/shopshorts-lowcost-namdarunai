@@ -7,6 +7,7 @@ import math
 import shutil
 import socket
 import subprocess
+import re
 from datetime import datetime
 import streamlit as st
 from dotenv import load_dotenv
@@ -107,6 +108,85 @@ def refresh_capcut_files(folder_path):
     if os.path.exists(old_zip):
         os.remove(old_zip)
     return capcut_input_files(folder_path)
+
+def render_remotion_with_progress(project_path, progress_bar, status_text, extra_args=None, log_area=None):
+    """Remotion render.py를 실시간 스트리밍으로 실행하여 Streamlit 진행바에 표시"""
+    cmd = [sys.executable, "-u", RENDER_SCRIPT, project_path]
+    if extra_args:
+        cmd.extend(extra_args)
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        encoding="utf-8",
+        errors="replace"
+    )
+    
+    last_pct = 0.0
+    last_msg = "렌더링 사전 작업 준비 중..."
+    progress_bar.progress(0.0)
+    status_text.markdown(f"**⏳ [0%]** {last_msg}")
+    
+    logs = []
+    buffer = ""
+    while True:
+        char = process.stdout.read(1)
+        if not char:
+            if buffer:
+                line = buffer.strip()
+                if line:
+                    logs.append(line)
+            break
+        if char in ("\r", "\n"):
+            line = buffer.strip()
+            buffer = ""
+            if not line:
+                continue
+            logs.append(line)
+            if log_area:
+                log_area.text("\n".join(logs[-6:]))
+            
+            # PROGRESS 이벤트 파싱 (PROGRESS: 0.45 | 메시지)
+            if line.startswith("PROGRESS:"):
+                try:
+                    parts = line[9:].split("|", 1)
+                    pct = max(0.0, min(1.0, float(parts[0].strip())))
+                    msg = parts[1].strip() if len(parts) > 1 else ""
+                    if pct >= last_pct:
+                        last_pct = pct
+                        last_msg = msg
+                        progress_bar.progress(last_pct)
+                        status_text.markdown(f"**🎬 [{int(last_pct * 100)}%]** {last_msg}")
+                except Exception:
+                    pass
+            else:
+                # Fallback: Remotion CLI의 원시 출력에서도 프레임 진행률 탐색
+                m_frame = re.search(r'(?:Rendered\s+)?(\d+)\s*/\s*(\d+)', line, re.IGNORECASE)
+                if m_frame:
+                    try:
+                        cur_f = int(m_frame.group(1))
+                        tot_f = int(m_frame.group(2))
+                        if tot_f > 0 and cur_f <= tot_f:
+                            pct = 0.25 + (cur_f / tot_f) * 0.65
+                            if pct > last_pct:
+                                last_pct = pct
+                                last_msg = f"프레임 렌더링 중: {cur_f}/{tot_f} ({int((cur_f/tot_f)*100)}%)"
+                                progress_bar.progress(last_pct)
+                                status_text.markdown(f"**🎬 [{int(last_pct * 100)}%]** {last_msg}")
+                    except Exception:
+                        pass
+        else:
+            buffer += char
+            
+    returncode = process.wait()
+    if returncode == 0:
+        progress_bar.progress(1.0)
+        status_text.markdown("**✅ [100%]** 9:16 비디오 렌더링 완료!")
+        return True, "\n".join(logs)
+    else:
+        return False, "\n".join(logs)
 
 def get_project_folders():
     if not os.path.exists(OUTPUTS_DIR):
@@ -285,14 +365,16 @@ with st.sidebar:
             if not st_check["scenes"]:
                 st.warning("먼저 4번 탭에서 자막(`scene_data.json`)을 생성해 주세요.")
             else:
-                with st.spinner("Remotion 9:16 비디오 렌더링 진행 중..."):
-                    cmd = [sys.executable, RENDER_SCRIPT, p_path]
-                    r = subprocess.run(cmd, capture_output=True, text=True)
-                    if r.returncode == 0:
-                        st.success("✅ 비디오 렌더링 완료!")
-                        st.rerun()
-                    else:
-                        st.error(f"렌더링 실패: {r.stderr or r.stdout}")
+                progress_bar = st.progress(0.0)
+                status_text = st.empty()
+                success, logs = render_remotion_with_progress(p_path, progress_bar, status_text)
+                if success:
+                    st.success("✅ 비디오 렌더링 완료!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("렌더링 실패:")
+                    st.code(logs[-800:])
 
 # ------------------------------------------------------------------
 # 메인 화면
@@ -628,10 +710,12 @@ with tab_research:
 
                     # 5. Remotion 9:16 비디오 렌더링 (선택 시)
                     if include_remotion_render:
-                        full_status.markdown("🔄 **[5단계]** Remotion 9:16 비디오 고속 렌더링 중 (Rspack 합성)...")
-                        full_prog.progress(0.88)
-                        render_cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
-                        subprocess.run(render_cmd, check=True, capture_output=True, text=True)
+                        full_status.markdown("🔄 **[5단계]** Remotion 9:16 비디오 렌더링 중 (프레임 생성 및 실시간 진행률 추적)...")
+                        r_prog = st.progress(0.0)
+                        r_status = st.empty()
+                        r_success, r_logs = render_remotion_with_progress(current_project_path, r_prog, r_status)
+                        if not r_success:
+                            st.warning("비디오 렌더링 중 오류가 발생했습니다. 6번 탭에서 로그를 확인하세요.")
                     
                     full_prog.progress(1.0)
                     msg_tail = "6번 탭에서 최종 영상을 재생하세요!" if include_remotion_render else "상단 3, 4, 5번 탭에서 확인하세요."
@@ -1049,16 +1133,20 @@ with tab_video:
             if not status["scenes"]:
                 st.error("먼저 4번 탭에서 `scene_data.json` 자막 데이터를 생성해 주세요!")
             else:
-                with st.spinner("Remotion Rspack 번들링 및 9:16 MP4 렌더링 진행 중 (약 30~50초 소요)..."):
-                    cmd = [sys.executable, RENDER_SCRIPT, current_project_path]
-                    if no_audio_opt:
-                        cmd.append("--no-audio")
-                    res = subprocess.run(cmd, capture_output=True, text=True)
-                    if res.returncode == 0:
-                        st.success("🎉 Remotion 렌더링이 성공적으로 완료되었습니다!")
-                        st.rerun()
-                    else:
-                        st.error(f"렌더링 실패:\n{res.stderr or res.stdout}")
+                extra = ["--no-audio"] if no_audio_opt else None
+                progress_bar = st.progress(0.0)
+                status_text = st.empty()
+                log_box = st.empty()
+                success, logs = render_remotion_with_progress(current_project_path, progress_bar, status_text, extra_args=extra, log_area=log_box)
+                if success:
+                    st.success("🎉 Remotion 9:16 비디오 렌더링이 성공적으로 완료되었습니다!")
+                    st.balloons()
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("렌더링 실패:")
+                    with st.expander("에러 상세 로그 보기", expanded=True):
+                        st.code(logs)
 
     with col_btn_studio:
         if is_port_open(port=3000):

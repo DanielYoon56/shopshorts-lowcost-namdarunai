@@ -5,6 +5,7 @@ import math
 import glob
 import subprocess
 import shutil
+import re
 
 FPS = 30
 
@@ -135,6 +136,7 @@ def main():
     duration_in_frames = max(1, duration_in_frames)
 
     # 4. 비디오 트랜스코딩 최적화
+    print("PROGRESS:0.03|비디오 파일 최적화 및 메타데이터 검사 중...", flush=True)
     print("[*] 비디오 파일 최적화 검사 중...")
     folder_name = os.path.basename(folder_path)
     disable_audio = (folder_name == "260823_shorts" or "--no-audio" in sys.argv)
@@ -332,6 +334,7 @@ def main():
         pass
 
     # 5-1. Windows Symlink 회피 및 Remotion 서빙을 위해 활성 프로젝트 에셋을 my-video/public/outputs/<folder_name>으로 동기화
+    print("PROGRESS:0.06|Remotion 에셋 동기화 중...", flush=True)
     public_target_dir = os.path.join(REMOTION_DIR, "public", "outputs", folder_name)
     os.makedirs(public_target_dir, exist_ok=True)
     for root, dirs, files in os.walk(folder_path):
@@ -368,27 +371,90 @@ def main():
         "--yes"
     ]
 
-    print(f"[*] Remotion 렌더링 실행 중 (출력 경로: {output_video_path})...")
-    print(f"[*] 명령어: {' '.join(cmd)}")
+    print(f"[*] Remotion 렌더링 실행 중 (출력 경로: {output_video_path})...", flush=True)
+    print(f"[*] 명령어: {' '.join(cmd)}", flush=True)
+    print("PROGRESS:0.08|React 컴포지션 빌드 및 렌더러 준비 중...", flush=True)
     
     try:
-        # my-video 디렉토리에서 명령어 실행 (Windows에서는 shell=True 필요)
-        result = subprocess.run(
+        # my-video 디렉토리에서 명령어 실행 및 실시간 출력 스트리밍
+        process = subprocess.Popen(
             cmd,
             cwd=REMOTION_DIR,
             shell=(sys.platform == "win32"),
-            check=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            encoding="utf-8",
+            errors="replace"
         )
-        print(f"[+] 성공: 비디오가 성공적으로 생성되었습니다 -> {output_video_path}")
+
+        buffer = ""
+        while True:
+            char = process.stdout.read(1)
+            if not char:
+                if buffer:
+                    line = buffer.strip()
+                    if line:
+                        print(line, flush=True)
+                break
+            if char in ("\r", "\n"):
+                line = buffer.strip()
+                buffer = ""
+                if not line:
+                    continue
+                print(line, flush=True)
+
+                # 1. 번들링 진행률 (Bundling 24%)
+                m_bundle = re.search(r'Bundling\s+(\d+)%', line, re.IGNORECASE)
+                if m_bundle:
+                    bpct = int(m_bundle.group(1))
+                    prog = 0.08 + (bpct / 100.0) * 0.14
+                    print(f"PROGRESS:{prog:.2f}|React 컴포지션 번들링 중 ({bpct}%)...", flush=True)
+                    continue
+
+                # 2. 퍼블릭 디렉토리 복사
+                if "copying public dir" in line.lower():
+                    print("PROGRESS:0.23|에셋 디렉토리 로드 중...", flush=True)
+                    continue
+
+                # 3. 프레임 렌더링 (Rendered 150/600 frames 또는 150/600)
+                m_frame = re.search(r'(?:Rendered\s+)?(\d+)\s*/\s*(\d+)\s*(?:frames)?', line, re.IGNORECASE)
+                if m_frame:
+                    try:
+                        cur_f = int(m_frame.group(1))
+                        tot_f = int(m_frame.group(2))
+                        if tot_f > 0 and cur_f <= tot_f:
+                            frac = cur_f / tot_f
+                            prog = 0.25 + frac * 0.65
+                            print(f"PROGRESS:{prog:.2f}|프레임 렌더링 중: {cur_f}/{tot_f} ({int(frac * 100)}%)", flush=True)
+                            continue
+                    except Exception:
+                        pass
+
+                # 4. 최종 인코딩 / muxing
+                if any(k in line.lower() for k in ("encoding", "stitch", "mux")):
+                    print("PROGRESS:0.92|비디오 및 오디오 최종 인코딩/결합 중...", flush=True)
+                    continue
+            else:
+                buffer += char
+
+        returncode = process.wait()
+        if returncode == 0:
+            print("PROGRESS:1.00|렌더링 완료!", flush=True)
+            print(f"[+] 성공: 비디오가 성공적으로 생성되었습니다 -> {output_video_path}", flush=True)
+        else:
+            print(f"[!] 에러: Remotion 렌더링 명령이 실패했습니다 (반환 코드: {returncode})", flush=True)
+            raise subprocess.CalledProcessError(returncode, cmd)
     except subprocess.CalledProcessError as e:
-        print(f"[!] 에러: Remotion 렌더링 명령이 실패했습니다 (반환 코드: {e.returncode})")
+        print(f"[!] 에러: Remotion 렌더링 명령이 실패했습니다 (반환 코드: {e.returncode})", flush=True)
     except Exception as e:
-        print(f"[!] 에러: 렌더링 중 오류 발생 - {e}")
+        print(f"[!] 에러: 렌더링 중 오류 발생 - {e}", flush=True)
     finally:
         # 임시 props 파일 제거
         if os.path.exists(temp_props_path):
             os.remove(temp_props_path)
-            print("[*] 임시 설정 파일을 삭제했습니다.")
+            print("[*] 임시 설정 파일을 삭제했습니다.", flush=True)
 
 if __name__ == "__main__":
     main()
