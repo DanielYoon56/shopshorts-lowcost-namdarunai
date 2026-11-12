@@ -1,3 +1,13 @@
+def sanitize_script_no_price(text):
+    """대본에서 상품 가격(예: 19,800원, 몇만 원 등) 표현을 제거/정제"""
+    # 가격 패턴 매칭 (단돈 ~원, 숫자+원, 숫자+만원 등)
+    text = re.sub(r'단돈\s*[\d,일이삼사오육칠팔구십백천만\s]+원[대|에|으로]?', '', text)
+    text = re.sub(r'[\d,]+\s*원[대|에|으로]?', '', text)
+    text = re.sub(r'[일이삼사오육칠팔구십\d]+\s*만\s*원[대|에|으로]?', '', text)
+    text = re.sub(r'몇십만\s*원[대|에|으로]?', '많은 비용', text)
+    text = re.sub(r'몇만\s*원[대|에|으로]?', '부담 없는 가격', text)
+    return text.strip()
+
 import os
 import re
 import json
@@ -199,7 +209,7 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
         context_text += "\n" + coupang_crawler.to_research_context(coupang_data)
         if coupang_data.get("ocr"):
             context_text += coupang_ocr.to_research_context(coupang_data["ocr"])
-        context_text += "(위 쿠팡 수집 정보에 없는 성능·효능·후기·할인은 지어내지 말 것. [불일치 주의]/[구매 주의] 항목은 대본에서 반드시 피하거나 반영할 것)\n\n"
+        context_text += "(위 쿠팡 수집 정보에 없는 성능·효능·후기는 지어내지 말 것. [불일치 주의]/[구매 주의] 항목은 대본에서 반드시 피하거나 반영할 것. [중요] 쇼츠 대본에는 가격 변동 이슈 방지를 위해 상품 가격 및 할인 금액을 절대 언급하지 말 것)\n\n"
     if url_info.get("title"):
         context_text += f"웹페이지 제목: {url_info['title']}\n"
     if url_info.get("description"):
@@ -227,6 +237,7 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
    - 비트 6 (CTA): 루프 엔딩 + 구매 유도 (Cut 6 Loop) - 첫 컷과 연결되는 팩샷이며, 마지막 CTA 멘트는 반드시 '프로필 링크를 참조하세요'로 끝남
 3. 대본(script) 작성 규칙:
    - 문장 단위로 줄바꿈 (stt-scene-align이 1:1로 자막 씬에 매핑됨)
+   - [절대 금지 - 가격 언급 금지] 대본에 구체적인 상품 가격(예: 19,800원, 3만 원대, 몇십만 원 등)이나 할인 금액은 절대 넣지 마세요. (영상 생명주기 및 실시간 가격 변동 문제 방지)
    - 숫자는 반드시 한글 발음으로 표기 (예: "46g" -> "사십육 그램", "30%" -> "삼십 퍼센트", "USB-C" -> "유에스비 씨")
    - 사용자가 직접 대본을 제공한 경우 해당 문장을 우선 정제하여 적용할 것.
    - [필수] 대본의 마지막 CTA 문장은 반드시 '프로필 링크를 참조하세요'로 끝나야 합니다. (이 멘트가 없으면 쇼핑 전환이 일어나지 않습니다.)
@@ -256,6 +267,7 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
 3. 단계 3 (클라이맥스/반전, 16~24초): 알고 보니 이 제품의 미친 성능/기능 때문이었다는 증명
 4. 단계 4 (여운/CTA, 25~30초): 썰의 여운을 남긴 후, 마지막 마무리 멘트는 반드시 '프로필 링크를 참조하세요'로 끝납니다.
 5. 대본(script) 작성 규칙:
+   - [절대 금지 - 가격 언급 금지] 대본에 구체적인 상품 가격(예: 19,800원, 몇만 원 등)이나 할인 금액은 절대 넣지 마세요.
    - 몰입감 넘치는 썰 구어체 (~했대, ~더라고, 알고 보니)
    - 문장 단위 줄바꿈
    - 숫자는 한글 발음 표기 ("100만 개" -> "백만 개")
@@ -278,9 +290,10 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
     prompt = f"다음 제품 정보를 바탕으로 최적의 쇼핑 쇼츠 기획을 작성해주세요:\n\n{context_text}"
     res = call_llm(prompt, system_prompt, prefer_model=model_choice, image_path=image_path)
     
-    # 마지막 CTA 문장은 반드시 '프로필 링크를 참조하세요' 강제 보장
+    # 가격 언급 제거 및 마지막 CTA 문장은 반드시 '프로필 링크를 참조하세요' 강제 보장
     if isinstance(res, dict) and res.get("script_md"):
-        lines = [l.strip() for l in res["script_md"].strip().split("\n") if l.strip()]
+        cleaned_script = sanitize_script_no_price(res["script_md"])
+        lines = [l.strip() for l in cleaned_script.split("\n") if l.strip()]
         cta_target = "프로필 링크를 참조하세요"
         if lines:
             if lines[-1] != cta_target:

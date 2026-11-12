@@ -603,15 +603,15 @@ with tab_research:
         custom_script_content = st.text_area(
             "✍️ 작성하신 대본 및 씬 스토리보드 (자유 양식)",
             placeholder="""예시:
-🎧 솔직히 이어폰에 몇십만 원씩 써야 할까요?
-이 가격대인데 무선 블루투스 이어폰에 노이즈 캔슬링 기능까지 들어가 있습니다.
-게다가 방수 기능, 통화용 내장 마이크, 그리고 USB-C 충전까지...
+🎧 솔직히 가성비 끝판왕 무선 이어폰을 아직도 고민하시나요?
+이 작은 크기에 프리미엄 노이즈 캔슬링 기능까지 확실하게 들어가 있습니다.
+게다가 생활 방수 기능, 선명한 통화 마이크, 그리고 고속 충전까지...
 프로필 링크를 참조하세요
 
 | 시간 | 화면 | 자막 |
 |---|---|---|
-| 0~3초 | 고가 이어폰 이미지 → 제품 등장 | 이어폰에 몇십만 원? |
-| 3~6초 | 이어폰 케이스 오픈 | 이 가격이면? |""",
+| 0~3초 | 이어폰 착용 클로즈업 | 아직도 고민하세요? |
+| 3~6초 | 이어폰 케이스 오픈 | 노캔 기능 탑재 |""",
             height=200,
             key=f"custom_script_input_{selected_folder}"
         )
@@ -781,7 +781,7 @@ with tab_script:
         help="숫자는 한글 발음(예: 46g -> 사십육 그램)으로 표기되어 있는지 확인하세요."
     )
 
-    st.info("💡 **필수 규칙**: 영상의 마지막 CTA 멘트는 쇼핑 전환을 위해 **'프로필 링크를 참조하세요'**가 필수로 포함되어야 합니다.")
+    st.info("💡 **대본 필수 규칙**: 1) 마지막 CTA 멘트는 반드시 **'프로필 링크를 참조하세요'** 포함  2) **상품 가격(예: 19,800원, 몇만 원 등)은 대본에 절대 들어가지 않음** (가격 변동 및 심의 이슈 방지)")
 
     if st.button("💾 대본 저장하기", type="primary"):
         lines = [l.strip() for l in edited_script.strip().split("\n") if l.strip()]
@@ -793,6 +793,12 @@ with tab_script:
                 else:
                     lines.append(cta_target)
             edited_script = "\n".join(lines)
+        
+        # 가격 표현 감지 검사
+        price_found = re.search(r'(\d+[\d,]*\s*원|[일이삼사오육칠팔구십\d]+\s*만\s*원)', edited_script)
+        if price_found:
+            st.warning(f"⚠️ 대본에 상품 가격 표현('{price_found.group(0)}')이 감지되었습니다! 가격 변동 문제 방지를 위해 가격 언급을 삭제하는 것을 권장합니다.")
+            
         with open(script_file_path, "w", encoding="utf-8") as f:
             f.write(edited_script.strip() + "\n")
         st.success(f"대본 저장 완료: {os.path.basename(script_file_path)} (마지막 CTA '프로필 링크를 참조하세요' 포함)")
