@@ -119,7 +119,12 @@ def check_project_status(folder_path):
     has_script = bool(glob.glob(os.path.join(folder_path, "*script*.md")) or os.path.exists(os.path.join(folder_path, "대본.md")))
     has_audio = bool(glob.glob(os.path.join(folder_path, "*.wav")))
     has_scenes = os.path.exists(os.path.join(folder_path, "scene_data.json"))
-    has_images = bool(glob.glob(os.path.join(folder_path, "assets", "cut*.jpg")) or os.path.exists(os.path.join(folder_path, "asset_sheet_1.jpg")))
+    has_images = bool(
+        glob.glob(os.path.join(folder_path, "assets", "cut*.jpg"))
+        or glob.glob(os.path.join(folder_path, "assets", "0[1-6]_Cut*.jpg"))
+        or glob.glob(os.path.join(folder_path, "images", "0[1-6]_Cut*.jpg"))
+        or os.path.exists(os.path.join(folder_path, "asset_sheet_1.jpg"))
+    )
     has_video = os.path.exists(os.path.join(folder_path, "output.mp4"))
     return {
         "script": has_script,
@@ -201,12 +206,17 @@ with st.sidebar:
     
     st.markdown("#### 📁 프로젝트 선택")
     if folders:
+        # 세션에 기록된 타겟 폴더가 있으면 해당 인덱스 선택
+        target_folder = st.session_state.get("selected_project_folder")
+        default_idx = folders.index(target_folder) if (target_folder and target_folder in folders) else 0
         selected_folder = st.selectbox(
             "작업 폴더",
             folders,
-            index=0,
+            index=default_idx,
+            key="main_project_selector",
             help="outputs 디렉토리 내의 프로젝트 폴더입니다."
         )
+        st.session_state["selected_project_folder"] = selected_folder
     else:
         st.info("현재 작업 폴더가 없습니다. 아래에서 새로 생성하세요.")
         selected_folder = None
@@ -214,13 +224,24 @@ with st.sidebar:
     # 새 프로젝트 폴더 생성
     with st.expander("➕ 새 프로젝트 폴더 생성"):
         default_new_name = datetime.now().strftime("%y%m%d_%H%M")
-        new_folder_name = st.text_input("폴더명", value=default_new_name)
+        new_folder_name = st.text_input("폴더명", value=default_new_name, key="new_folder_name_input")
         if st.button("폴더 생성", use_container_width=True):
-            new_path = os.path.join(OUTPUTS_DIR, new_folder_name)
-            os.makedirs(new_path, exist_ok=True)
-            os.makedirs(os.path.join(new_path, "assets"), exist_ok=True)
-            st.success(f"생성 완료: {new_folder_name}")
-            st.rerun()
+            clean_name = new_folder_name.strip()
+            if clean_name:
+                new_path = os.path.join(OUTPUTS_DIR, clean_name)
+                os.makedirs(new_path, exist_ok=True)
+                os.makedirs(os.path.join(new_path, "assets"), exist_ok=True)
+                os.makedirs(os.path.join(new_path, "images"), exist_ok=True)
+                # 생성된 새 폴더를 즉시 선택 상태로 전환
+                st.session_state["selected_project_folder"] = clean_name
+                st.session_state["main_project_selector"] = clean_name
+                st.session_state["_last_loaded_project"] = clean_name
+                # 이전 프로젝트의 임시 상태 완전 초기화
+                st.session_state.pop("coupang_ingested", None)
+                st.session_state.pop("last_uploaded_capcut_sig", None)
+                st.session_state.pop("uploaded_video_just_now", None)
+                st.success(f"생성 완료: {clean_name}")
+                st.rerun()
 
     st.markdown("---")
     st.markdown("#### ⚙️ 시스템 상태")
@@ -284,6 +305,15 @@ if not selected_folder:
     st.stop()
 
 current_project_path = os.path.join(OUTPUTS_DIR, selected_folder)
+
+# 프로젝트 전환 감지 및 이전 프로젝트 임시 세션 정리
+prev_active_project = st.session_state.get("_last_loaded_project")
+if selected_folder != prev_active_project:
+    st.session_state["_last_loaded_project"] = selected_folder
+    st.session_state.pop("coupang_ingested", None)
+    st.session_state.pop("last_uploaded_capcut_sig", None)
+    st.session_state.pop("uploaded_video_just_now", None)
+
 status = check_project_status(current_project_path)
 
 # Remotion Studio용 활성 프로젝트 설정 및 에셋 자동 동기화
@@ -363,7 +393,7 @@ with tab_research:
     uploaded_file = st.file_uploader(
         "실물 제품 사진 파일 선택 (JPG / PNG)",
         type=["jpg", "jpeg", "png"],
-        key="ref_image_uploader"
+        key=f"ref_image_uploader_{selected_folder}"
     )
     
     ref_image_path = os.path.join(current_project_path, "assets", "ref_cut1.png")
@@ -386,7 +416,7 @@ with tab_research:
     coupang_file = st.file_uploader(
         "저장한 쿠팡 상품 페이지 (.mhtml / .html)",
         type=["mhtml", "mht", "html", "htm"],
-        key="coupang_page_uploader"
+        key=f"coupang_page_uploader_{selected_folder}"
     )
     if coupang_file is not None and st.session_state.get("coupang_ingested") != (selected_folder, coupang_file.file_id):
         import tempfile
@@ -479,7 +509,8 @@ with tab_research:
 |---|---|---|
 | 0~3초 | 고가 이어폰 이미지 → 제품 등장 | 이어폰에 몇십만 원? |
 | 3~6초 | 이어폰 케이스 오픈 | 이 가격이면? |""",
-            height=200
+            height=200,
+            key=f"custom_script_input_{selected_folder}"
         )
         product_url = ""
         product_text_desc = "사용자 직접 입력 대본 기반 쇼츠"
@@ -488,23 +519,27 @@ with tab_research:
         with col_in1:
             product_url = st.text_input(
                 "🔗 상품 URL (쿠팡, 스마트스토어, Amazon 등 - 선택사항)",
-                placeholder="https://www.coupang.com/vp/products/..."
+                placeholder="https://www.coupang.com/vp/products/...",
+                key=f"product_url_input_{selected_folder}"
             )
             product_text_desc = st.text_area(
                 "📝 제품명 / 브랜드 / 핵심 특징 / 썰 키워드",
                 placeholder="예: 초가성비 무선 노이즈캔슬링 블루투스 이어폰\nLED 배터리 100 잔량 표시, 생활 방수, USB-C 충전, 운동/출퇴근용",
-                height=130
+                height=130,
+                key=f"product_desc_input_{selected_folder}"
             )
         with col_in2:
             category_choice = st.selectbox(
                 "카테고리 선택",
                 ["자동 감지", "가전/디지털", "뷰티/스킨케어", "생활/청소/욕실", "주방/조리도구", "식품/간식", "패션/잡화", "여행/아웃도어", "아이디어/기타"],
-                index=0
+                index=0,
+                key=f"category_choice_{selected_folder}"
             )
             model_choice = st.selectbox(
                 "분석 AI 모델",
                 ["auto (OpenAI / Gemini 자동 감지)", "gemini (Gemini 3.8 Flash)", "openai (GPT-4o)"],
-                index=0
+                index=0,
+                key=f"model_choice_{selected_folder}"
             )
 
     st.markdown("---")
@@ -630,13 +665,13 @@ with tab_script:
     if os.path.exists(script_file_path):
         with open(script_file_path, "r", encoding="utf-8") as f:
             current_script_content = f.read()
-    else:
-        current_script_content = "1번 탭에서 AI 조사를 실행하거나, 쇼츠 대본 문장을 여기에 줄 단위로 입력하세요."
 
     edited_script = st.text_area(
         "대본 내용 (한 줄당 하나의 자막 씬으로 분할됩니다)",
         value=current_script_content,
+        placeholder="1번 탭에서 AI 조사를 실행하거나, 쇼츠 대본 문장을 여기에 줄 단위로 입력하세요.",
         height=260,
+        key=f"edited_script_{selected_folder}",
         help="숫자는 한글 발음(예: 46g -> 사십육 그램)으로 표기되어 있는지 확인하세요."
     )
 
@@ -850,8 +885,10 @@ with tab_images:
     with st.expander("✏️ 6개 컷별 비주얼 프롬프트 확인 / 커스텀 편집"):
         custom_prompts_input = st.text_area(
             "프롬프트 내용 (`prompts.md`)",
-            value=existing_prompts_text if existing_prompts_text else "1번 탭에서 기획을 생성하면 6개 컷 프롬프트가 자동으로 채워집니다.",
-            height=180
+            value=existing_prompts_text,
+            placeholder="1번 탭에서 기획을 생성하면 6개 컷 프롬프트가 자동으로 채워집니다.",
+            height=180,
+            key=f"custom_prompts_{selected_folder}"
         )
         if st.button("프롬프트 저장"):
             with open(prompts_file_path, "w", encoding="utf-8") as f:
@@ -1041,7 +1078,7 @@ with tab_video:
         uploaded_final_video = st.file_uploader(
             "완성된 쇼츠 비디오 파일 선택 (MP4 / MOV)",
             type=["mp4", "mov"],
-            key="capcut_final_uploader"
+            key=f"capcut_final_uploader_{selected_folder}"
         )
         if uploaded_final_video is not None:
             file_sig = f"{uploaded_final_video.name}_{uploaded_final_video.size}_{selected_folder}"
@@ -1098,7 +1135,8 @@ with tab_assets:
     uploaded_files = st.file_uploader(
         "파일 업로드 (이미지 또는 영상 클립)",
         accept_multiple_files=True,
-        type=["png", "jpg", "jpeg", "webp", "mp4", "mov"]
+        type=["png", "jpg", "jpeg", "webp", "mp4", "mov"],
+        key=f"tab_assets_uploader_{selected_folder}"
     )
     if uploaded_files:
         for uf in uploaded_files:
