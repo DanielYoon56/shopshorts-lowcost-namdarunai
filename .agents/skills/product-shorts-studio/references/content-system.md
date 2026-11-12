@@ -219,7 +219,7 @@ Do not infer missing geometry. End on the same product-facing angle as the refer
 - 자막 위치: 화면 세로 25–35% 구간. 상단 12%와 하단 20%는 플랫폼 UI가 덮는다.
 - 흰 글씨 + 얇은 검정 외곽선. 한 화면 최대 두 줄.
 - 첫 자막은 0.2초에 띄운다. 소리 끄고 보는 시청자가 1.5초 안에 판단한다.
-- 마지막 자막에만 CTA. 영상 안에 URL을 넣지 않는다.
+- 마지막 자막 및 대본 끝부분에는 반드시 '프로필 링크를 참조하세요' CTA 멘트를 넣는다.
 
 ---
 

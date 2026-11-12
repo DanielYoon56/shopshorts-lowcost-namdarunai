@@ -6,6 +6,80 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 쿠팡 상품 상세 수집 스킬 (.agents/skills/coupang-crawler)
+import sys as _sys
+_COUPANG_SKILL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".agents", "skills", "coupang-crawler", "scripts")
+if _COUPANG_SKILL_DIR not in _sys.path:
+    _sys.path.insert(0, _COUPANG_SKILL_DIR)
+import coupang_crawler
+import coupang_ocr
+
+COUPANG_JSON_NAME = "coupang-product.json"
+COUPANG_OCR_JSON_NAME = "coupang-ocr.json"
+COUPANG_DETAIL_DIR = os.path.join("assets", "coupang_detail")
+
+
+def is_coupang_url(url):
+    from urllib.parse import urlsplit
+    host = (urlsplit(url or "").hostname or "").lower()
+    return host == "coupang.com" or host.endswith(".coupang.com")
+
+
+def ingest_coupang_page(saved_page_path, target_folder, source_url=""):
+    """브라우저에서 저장한 쿠팡 상품 페이지(.html/.mhtml)를 파싱해 프로젝트 폴더에 JSON으로 저장."""
+    from pathlib import Path
+    html = coupang_crawler.read_saved_page(Path(saved_page_path))
+    result = coupang_crawler.parse_product_html(html, source_url)
+    os.makedirs(target_folder, exist_ok=True)
+    with open(os.path.join(target_folder, COUPANG_JSON_NAME), "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    # 새 상품이 들어오면 이전 상품의 상세 이미지/OCR 결과는 지운다
+    import shutil
+    detail_dir = os.path.join(target_folder, COUPANG_DETAIL_DIR)
+    shutil.rmtree(detail_dir, ignore_errors=True)
+    ocr_path = os.path.join(target_folder, COUPANG_OCR_JSON_NAME)
+    if os.path.exists(ocr_path):
+        os.remove(ocr_path)
+    # .mhtml 에는 상세 이미지 원본이 함께 저장돼 있으므로 OCR/레퍼런스용으로 꺼내 둔다
+    try:
+        images = coupang_ocr.extract_images_from_mhtml(
+            Path(saved_page_path), result["fields"].get("detail_images", []), Path(detail_dir)
+        )
+    except Exception as e:  # .html 저장본 등 이미지가 없는 경우
+        print(f"[!] 상세 이미지 추출 건너뜀: {e}")
+        images = []
+    result["detail_image_files"] = len(images)
+    return result
+
+
+def run_coupang_ocr(target_folder):
+    """프로젝트의 상세 이미지를 OCR 해 스펙 후보를 coupang-ocr.json 으로 저장 (LLM 미사용)."""
+    from pathlib import Path
+    detail_dir = Path(target_folder) / COUPANG_DETAIL_DIR
+    images = coupang_ocr.list_images(detail_dir) if detail_dir.is_dir() else []
+    if not images:
+        raise RuntimeError("상세 이미지가 없습니다. 쿠팡 페이지를 '웹페이지, 단일 파일(.mhtml)'로 저장해 다시 올려 주세요.")
+    product = load_coupang_data(target_folder) or {}
+    result = coupang_ocr.run(images, product.get("fields", {}).get("title", ""))
+    with open(os.path.join(target_folder, COUPANG_OCR_JSON_NAME), "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+    return result
+
+
+def load_coupang_data(target_folder):
+    """coupang-product.json (+ 있으면 coupang-ocr.json 을 'ocr' 키로) 로드."""
+    path = os.path.join(target_folder, COUPANG_JSON_NAME)
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    ocr_path = os.path.join(target_folder, COUPANG_OCR_JSON_NAME)
+    if os.path.exists(ocr_path):
+        with open(ocr_path, encoding="utf-8") as f:
+            data["ocr"] = json.load(f)
+    return data
+
 def fetch_url_metadata(url):
     """URL에서 제목, 메타 설명 등 기초 제품 정보 스크랩"""
     if not url or not url.startswith("http"):
@@ -105,7 +179,7 @@ def call_llm(prompt, system_prompt, prefer_model="auto", image_path=None):
     else:
         raise ValueError(f"지원하지 않는 모델: {use_model}")
 
-def run_product_research(product_text, url="", pipeline_type="product_15s", category="자동 감지", model_choice="auto", image_path=None, custom_script=None):
+def run_product_research(product_text, url="", pipeline_type="product_15s", category="자동 감지", model_choice="auto", image_path=None, custom_script=None, coupang_data=None):
     """
     제품 텍스트, URL, 실물 이미지, 커스텀 대본을 분석하여:
     1. PRODUCT_TRUTH / STORY_TRUTH
@@ -115,11 +189,17 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
     5. publish_kit.md (제목/해시태그)
     를 한 번에 생성
     """
-    url_info = fetch_url_metadata(url)
-    
+    # 쿠팡은 비브라우저 요청을 403으로 차단하므로 범용 메타 수집을 건너뛰고 저장 페이지 파싱 결과를 쓴다
+    url_info = {} if is_coupang_url(url) else fetch_url_metadata(url)
+
     context_text = f"사용자 입력 정보: {product_text}\n"
     if url:
         context_text += f"상품 URL: {url}\n"
+    if coupang_data:
+        context_text += "\n" + coupang_crawler.to_research_context(coupang_data)
+        if coupang_data.get("ocr"):
+            context_text += coupang_ocr.to_research_context(coupang_data["ocr"])
+        context_text += "(위 쿠팡 수집 정보에 없는 성능·효능·후기·할인은 지어내지 말 것. [불일치 주의]/[구매 주의] 항목은 대본에서 반드시 피하거나 반영할 것)\n\n"
     if url_info.get("title"):
         context_text += f"웹페이지 제목: {url_info['title']}\n"
     if url_info.get("description"):
@@ -144,11 +224,12 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
    - 비트 3 (Hero): 제품 공개 (Cut 3 Hero/Product) - 제품 정면 고정 팩샷
    - 비트 4 (Action): 핵심 시연 (Cut 4 Action/Detail) - 한 가지 핵심 동작 (착용, 작동)
    - 비트 5 (Proof): 재훅/증명 (Cut 5 Re-Hook/Proof) - 결과물 및 기능 증명 (방수, 내구성)
-   - 비트 6 (CTA): 루프 엔딩 + 구매 유도 (Cut 6 Loop) - 첫 컷과 연결되는 팩샷
+   - 비트 6 (CTA): 루프 엔딩 + 구매 유도 (Cut 6 Loop) - 첫 컷과 연결되는 팩샷이며, 마지막 CTA 멘트는 반드시 '프로필 링크를 참조하세요'로 끝남
 3. 대본(script) 작성 규칙:
    - 문장 단위로 줄바꿈 (stt-scene-align이 1:1로 자막 씬에 매핑됨)
    - 숫자는 반드시 한글 발음으로 표기 (예: "46g" -> "사십육 그램", "30%" -> "삼십 퍼센트", "USB-C" -> "유에스비 씨")
    - 사용자가 직접 대본을 제공한 경우 해당 문장을 우선 정제하여 적용할 것.
+   - [필수] 대본의 마지막 CTA 문장은 반드시 '프로필 링크를 참조하세요'로 끝나야 합니다. (이 멘트가 없으면 쇼핑 전환이 일어나지 않습니다.)
 4. 프롬프트(prompts.md) 작성 규칙:
    - 첨부된 실물 사진의 외형(색상, 재질, LED 불빛 등)을 반드시 반영한 고화질 영문 프롬프트 작성 (Pure authentic photography, studio lighting, no text).
 
@@ -173,11 +254,12 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
 1. 단계 1 (도파민 후킹, 0~4초): 상식을 깨는 충격적 사실, 논란, 창업자 집착, 품절 대란
 2. 단계 2 (빌드업, 5~15초): 왜 그런 일이 벌어졌는지 흥미진진한 뒷이야기, 개발 과정의 광기
 3. 단계 3 (클라이맥스/반전, 16~24초): 알고 보니 이 제품의 미친 성능/기능 때문이었다는 증명
-4. 단계 4 (여운/Soft Sell, 25~30초): 대놓고 사라는 말 대신 품절 사태/군중심리 자극
+4. 단계 4 (여운/CTA, 25~30초): 썰의 여운을 남긴 후, 마지막 마무리 멘트는 반드시 '프로필 링크를 참조하세요'로 끝납니다.
 5. 대본(script) 작성 규칙:
    - 몰입감 넘치는 썰 구어체 (~했대, ~더라고, 알고 보니)
    - 문장 단위 줄바꿈
    - 숫자는 한글 발음 표기 ("100만 개" -> "백만 개")
+   - [필수] 대본의 마지막 문장(CTA 멘트)은 반드시 '프로필 링크를 참조하세요'를 넣어주어야 합니다.
    - 1.5배속 기준 약 26~28초 분량
 
 [반환 JSON 스키마]
@@ -194,7 +276,20 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
 """
 
     prompt = f"다음 제품 정보를 바탕으로 최적의 쇼핑 쇼츠 기획을 작성해주세요:\n\n{context_text}"
-    return call_llm(prompt, system_prompt, prefer_model=model_choice, image_path=image_path)
+    res = call_llm(prompt, system_prompt, prefer_model=model_choice, image_path=image_path)
+    
+    # 마지막 CTA 문장은 반드시 '프로필 링크를 참조하세요' 강제 보장
+    if isinstance(res, dict) and res.get("script_md"):
+        lines = [l.strip() for l in res["script_md"].strip().split("\n") if l.strip()]
+        cta_target = "프로필 링크를 참조하세요"
+        if lines:
+            if lines[-1] != cta_target:
+                if any(k in lines[-1] for k in ["프로필", "링크", "구매", "참조", "확인"]):
+                    lines[-1] = cta_target
+                else:
+                    lines.append(cta_target)
+            res["script_md"] = "\n".join(lines)
+    return res
 
 def save_research_artifacts(target_folder, result_dict):
     """생성된 기획 아티팩트를 대상 폴더에 저장"""
@@ -203,8 +298,16 @@ def save_research_artifacts(target_folder, result_dict):
     
     # 1. script.md
     if result_dict.get("script_md"):
+        lines = [l.strip() for l in result_dict["script_md"].strip().split("\n") if l.strip()]
+        cta_target = "프로필 링크를 참조하세요"
+        if lines and lines[-1] != cta_target:
+            if any(k in lines[-1] for k in ["프로필", "링크", "구매", "참조", "확인"]):
+                lines[-1] = cta_target
+            else:
+                lines.append(cta_target)
+        final_script = "\n".join(lines)
         with open(os.path.join(target_folder, "script.md"), "w", encoding="utf-8") as f:
-            f.write(result_dict["script_md"].strip() + "\n")
+            f.write(final_script.strip() + "\n")
             
     # 2. plan.md
     plan_content = ""

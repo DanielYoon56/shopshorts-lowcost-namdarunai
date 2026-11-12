@@ -586,6 +586,7 @@ with tab_research:
 🎧 솔직히 이어폰에 몇십만 원씩 써야 할까요?
 이 가격대인데 무선 블루투스 이어폰에 노이즈 캔슬링 기능까지 들어가 있습니다.
 게다가 방수 기능, 통화용 내장 마이크, 그리고 USB-C 충전까지...
+프로필 링크를 참조하세요
 
 | 시간 | 화면 | 자막 |
 |---|---|---|
@@ -759,10 +760,21 @@ with tab_script:
         help="숫자는 한글 발음(예: 46g -> 사십육 그램)으로 표기되어 있는지 확인하세요."
     )
 
+    st.info("💡 **필수 규칙**: 영상의 마지막 CTA 멘트는 쇼핑 전환을 위해 **'프로필 링크를 참조하세요'**가 필수로 포함되어야 합니다.")
+
     if st.button("💾 대본 저장하기", type="primary"):
+        lines = [l.strip() for l in edited_script.strip().split("\n") if l.strip()]
+        cta_target = "프로필 링크를 참조하세요"
+        if lines:
+            if lines[-1] != cta_target:
+                if any(k in lines[-1] for k in ["프로필", "링크", "구매", "참조", "확인"]):
+                    lines[-1] = cta_target
+                else:
+                    lines.append(cta_target)
+            edited_script = "\n".join(lines)
         with open(script_file_path, "w", encoding="utf-8") as f:
             f.write(edited_script.strip() + "\n")
-        st.success(f"대본 저장 완료: {os.path.basename(script_file_path)}")
+        st.success(f"대본 저장 완료: {os.path.basename(script_file_path)} (마지막 CTA '프로필 링크를 참조하세요' 포함)")
         st.rerun()
 
     st.markdown("---")
