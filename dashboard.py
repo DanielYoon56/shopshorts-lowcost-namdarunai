@@ -344,6 +344,24 @@ with st.sidebar:
         st.caption("⚡ 완전 무료 FLUX.1 무제한 고속 생성 모드")
 
     st.markdown("---")
+    st.markdown("#### 🔊 TTS 음성 엔진 선택")
+    sidebar_tts_choice = st.radio(
+        "사용할 TTS 나레이션 엔진",
+        options=["무료 Edge-TTS (고속/무제한 추천)", "Google Gemini-TTS (GenAI)", "Qwen3-TTS (로컬 7860)"],
+        index=0,
+        key="sidebar_tts_engine_radio",
+        help="• 무료 Edge-TTS: Microsoft Edge 음성 합성 (가장 안정적이고 고품질 무료 무제한 생성)\n• Gemini-TTS: Google GenAI 음성 모델\n• Qwen3-TTS: 로컬 음성 클로닝"
+    )
+    selected_tts_engine = "edge" if "Edge" in sidebar_tts_choice else ("gemini" if "Gemini" in sidebar_tts_choice else "qwen")
+    st.session_state["global_tts_engine"] = selected_tts_engine
+    if selected_tts_engine == "edge":
+        st.caption("⚡ 무료 Edge-TTS (ko-KR-SunHiNeural) 활성화됨")
+    elif selected_tts_engine == "gemini":
+        st.caption("✨ Google Gemini TTS (Kore/Puck) 활성화됨")
+    else:
+        st.caption("🎙️ 로컬 Qwen3-TTS 보이스 클론 활성화됨")
+
+    st.markdown("---")
     st.markdown("#### ⚙️ 시스템 상태")
     
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -702,15 +720,19 @@ with tab_research:
                     save_research_artifacts(current_project_path, res)
                     
                     # 2. TTS 음성 생성
-                    full_status.markdown("🔄 **[2단계]** Gemini TTS 고품질 나레이션 음성 합성 및 배속 인코딩 중...")
-                    full_prog.progress(0.35)
+                    active_tts_eng = st.session_state.get("global_tts_engine", selected_tts_engine)
+                    tts_label = "무료 Edge-TTS" if active_tts_eng == "edge" else ("Google Gemini-TTS" if active_tts_eng == "gemini" else "Qwen3-TTS")
                     speed_rate = 1.2 if is_product_shorts else 1.5
+                    full_status.markdown(f"🔄 **[2단계]** {tts_label} 나레이션 음성 합성 및 {speed_rate}배속 인코딩 중...")
+                    full_prog.progress(0.35)
                     target_tts = TTS_FACTION_SCRIPT if speed_rate == 1.5 else TTS_GEN_SCRIPT
                     tts_cmd = [
                         sys.executable, target_tts, current_project_path,
-                        "--engine", "gemini" if os.getenv("GEMINI_API_KEY") else "edge",
+                        "--engine", active_tts_eng,
                         "--rate", str(speed_rate)
                     ]
+                    if active_tts_eng == "edge":
+                        tts_cmd.extend(["--voice", "ko-KR-SunHiNeural"])
                     subprocess.run(tts_cmd, check=True, capture_output=True, text=True)
                     
                     # 3. Whisper STT 자막 싱크
@@ -833,20 +855,19 @@ with tab_script:
 with tab_audio:
     st.markdown("### 🔊 TTS 나레이션 음성 생성")
     
-    has_gemini_key = bool(os.getenv("GEMINI_API_KEY"))
+    active_sidebar_tts = st.session_state.get("global_tts_engine", selected_tts_engine)
     col_t1, col_t2, col_t3 = st.columns([1.2, 1.2, 1])
     with col_t1:
-        engine_options = (
-            ["Gemini-TTS (Google GenAI, 추천)", "Edge-TTS (무료 / 즉시 사용)", "Qwen3-TTS (로컬 서버 7860)"]
-            if has_gemini_key
-            else ["Edge-TTS (무료 / 즉시 사용, 추천)", "Gemini-TTS (Google GenAI)", "Qwen3-TTS (로컬 서버 7860)"]
+        tts_options = ["무료 Edge-TTS (고속/즉시 사용, 추천)", "Google Gemini-TTS (GenAI)", "Qwen3-TTS (로컬 서버 7860)"]
+        default_tts_idx = 0 if active_sidebar_tts == "edge" else (1 if active_sidebar_tts == "gemini" else 2)
+        engine_choice = st.radio(
+            "TTS 엔진 선택 (좌측 사이드바 연동)",
+            tts_options,
+            index=default_tts_idx,
+            key=f"tab3_tts_engine_choice_{selected_folder}"
         )
-        engine_choice = st.selectbox(
-            "TTS 엔진 선택",
-            engine_options,
-            index=0
-        )
-        engine_code = "gemini" if "Gemini" in engine_choice else ("edge" if "Edge" in engine_choice else "qwen")
+        engine_code = "edge" if "Edge" in engine_choice else ("gemini" if "Gemini" in engine_choice else "qwen")
+        st.session_state["global_tts_engine"] = engine_code
 
     with col_t2:
         if engine_code == "edge":
