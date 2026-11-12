@@ -15,31 +15,6 @@ load_dotenv()
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = SCRIPT_DIR
 
-def generate_via_pollinations(prompt, output_path, width=1024, height=576, model="flux"):
-    """
-    Pollinations.ai를 통한 초고화질 FLUX.1 이미지 무료 생성 (API 키 불필요)
-    16:9 캔버스 (1024x576 또는 1280x720) 또는 9:16 (576x1024)
-    """
-    encoded_prompt = urllib.parse.quote(prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model={model}&nologo=true&enhance=true"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
-    # 재시도 로직 포함 (최대 3회)
-    for attempt in range(3):
-        try:
-            r = requests.get(url, headers=headers, timeout=45)
-            if r.status_code == 200 and len(r.content) > 5000:
-                with open(output_path, "wb") as f:
-                    f.write(r.content)
-                return True
-        except Exception as e:
-            print(f"[!] Pollinations 호출 실패 (시도 {attempt+1}/3): {e}")
-            time.sleep(2)
-            
-    raise RuntimeError("Pollinations 이미지 생성 서버 응답 실패")
 
 def generate_via_gemini_imagen(prompt, output_path, aspect_ratio="9:16", ref_image_path=None):
     """Google Gemini 멀티모달 이미지 생성 (GEMINI_API_KEY 필요, 실물 사진 레퍼런스 주입)"""
@@ -254,14 +229,12 @@ def batch_generate_images(folder_path, engine="gemini", mode="1x3_sheets", custo
             out_sheet_path = os.path.join(folder_path, sheet_name)
             
             print(f"[*] [{engine.upper()}] {sheet_name} 생성 중...")
-            if engine == "gemini":
-                try:
-                    generate_via_gemini_imagen(combined_prompt, out_sheet_path, aspect_ratio="16:9", ref_image_path=ref_image_path)
-                except Exception as e:
-                    print(f"[!] Gemini Imagen 실패, FLUX로 대체: {e}")
-                    generate_via_pollinations(combined_prompt, out_sheet_path, width=1280, height=720)
+            if engine == "hf":
+                generate_via_huggingface(combined_prompt, out_sheet_path, width=1024, height=576)
+            elif engine == "siliconflow":
+                generate_via_siliconflow(combined_prompt, out_sheet_path, image_size="1024x576")
             else:
-                generate_via_pollinations(combined_prompt, out_sheet_path, width=1280, height=720)
+                generate_via_gemini_imagen(combined_prompt, out_sheet_path, aspect_ratio="16:9", ref_image_path=ref_image_path)
                 
             generated_files.append(out_sheet_path)
 
@@ -292,13 +265,12 @@ def batch_generate_images(folder_path, engine="gemini", mode="1x3_sheets", custo
             clean_prompt = f"Vertical 9:16 mobile aspect ratio commercial product shot, {prompt_text}, commercial lighting, sharp focus, 8k, professional"
             
             print(f"[*] [{engine.upper()}] {cut_filename} 생성 중...")
-            if engine == "gemini":
-                try:
-                    generate_via_gemini_imagen(clean_prompt, out_cut_path, aspect_ratio="9:16", ref_image_path=ref_image_path)
-                except Exception:
-                    generate_via_pollinations(clean_prompt, out_cut_path, width=576, height=1024)
+            if engine == "hf":
+                generate_via_huggingface(clean_prompt, out_cut_path, width=576, height=1024)
+            elif engine == "siliconflow":
+                generate_via_siliconflow(clean_prompt, out_cut_path, image_size="576x1024")
             else:
-                generate_via_pollinations(clean_prompt, out_cut_path, width=576, height=1024)
+                generate_via_gemini_imagen(clean_prompt, out_cut_path, aspect_ratio="9:16", ref_image_path=ref_image_path)
                 
             generated_files.append(out_cut_path)
             time.sleep(1)
