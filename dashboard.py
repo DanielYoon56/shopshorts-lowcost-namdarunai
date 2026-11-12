@@ -324,24 +324,50 @@ with st.sidebar:
                 st.rerun()
 
     st.markdown("---")
-    st.markdown("#### 🎨 이미지 생성 엔진 선택")
+    st.markdown("### 🌐 전역 엔진 설정 (Global)")
+    st.caption("원클릭 올인원 풀 파이프라인 및 모든 탭에 일괄 적용됩니다.")
+    st.markdown("#### 🎨 AI 이미지 생성 엔진")
     g_key = os.getenv("GEMINI_API_KEY")
+    pollen_key = os.getenv("POLLINATIONS_API_KEY") or os.getenv("POLLEN_API_KEY")
+    hf_token = os.getenv("HF_TOKEN")
+    sf_key = os.getenv("SILICONFLOW_API_KEY")
+
     sidebar_img_choice = st.radio(
         "사용할 AI 이미지 엔진",
-        options=["무료 FLUX (무제한/API키 불필요)", "Google Gemini (Imagen/실물 레퍼런스)"],
+        options=[
+            "무료 FLUX (Pollinations / 쿨다운 자동대기)",
+            "Google Gemini (실물 사진 레퍼런스)",
+            "Hugging Face FLUX (HF_TOKEN 무료)",
+            "SiliconFlow FLUX (2,000만 토큰 무료)"
+        ],
         index=0,
         key="sidebar_img_engine_radio",
-        help="• 무료 FLUX: Pollinations.ai 무료 서버를 통해 API 키 없이 무제한으로 고속 생성합니다.\n• Google Gemini: GEMINI_API_KEY를 사용하여 첨부된 실물 사진을 레퍼런스로 반영하여 생성합니다."
+        help="• 무료 FLUX: Pollinations 무료 서버 (키 등록 시 딜레이 없이 즉시 생성)\n• Google Gemini: 실물 사진 외형을 반영하여 생성\n• Hugging Face: HF 무료 토큰으로 FLUX.1-schnell 생성\n• SiliconFlow: 가입 즉시 2천만 토큰 무료 제공"
     )
-    selected_img_engine = "flux" if "FLUX" in sidebar_img_choice else "gemini"
+    if "FLUX (Pollinations" in sidebar_img_choice:
+        selected_img_engine = "flux"
+    elif "Gemini" in sidebar_img_choice:
+        selected_img_engine = "gemini"
+    elif "Hugging" in sidebar_img_choice:
+        selected_img_engine = "hf"
+    else:
+        selected_img_engine = "siliconflow"
     st.session_state["global_image_engine"] = selected_img_engine
-    if selected_img_engine == "gemini":
+
+    if selected_img_engine == "flux":
+        if pollen_key:
+            st.caption("✨ Pollen 무료 키 연동됨 (딜레이 없는 고속 모드)")
+        else:
+            st.caption("⚡ 완전 무료 모드 (45초 쿼터 쿨다운 자동 대기/복구)")
+    elif selected_img_engine == "gemini":
         if g_key and len(g_key) > 5:
             st.caption("✨ Gemini 실물 사진 레퍼런스 모드 활성화됨")
         else:
             st.caption("⚠️ Gemini 키 미설정 시 FLUX로 자동 대체됩니다.")
+    elif selected_img_engine == "hf":
+        st.caption("🤗 Hugging Face Serverless FLUX 모드" if hf_token else "⚠️ .env에 HF_TOKEN 등록 필요")
     else:
-        st.caption("⚡ 완전 무료 FLUX.1 무제한 고속 생성 모드")
+        st.caption("🚀 SiliconFlow 고속 생성 모드" if sf_key else "⚠️ .env에 SILICONFLOW_API_KEY 등록 필요")
 
     st.markdown("---")
     st.markdown("#### 🔊 TTS 음성 엔진 선택")
@@ -665,6 +691,9 @@ with tab_research:
 
     st.markdown("---")
     st.markdown("#### 🚀 파이프라인 가동 선택")
+    active_tts_desc = "무료 Edge-TTS" if selected_tts_engine == "edge" else ("Google Gemini-TTS" if selected_tts_engine == "gemini" else "Qwen3-TTS")
+    active_img_desc = "무료 FLUX (Pollinations)" if selected_img_engine == "flux" else ("Google Gemini" if selected_img_engine == "gemini" else ("Hugging Face FLUX" if selected_img_engine == "hf" else "SiliconFlow FLUX"))
+    st.info(f"🌐 **현재 전역 엔진 설정 (좌측 사이드바에서 변경 가능)**: 🔊 음성 = **{active_tts_desc}** | 🎨 이미지 = **{active_img_desc}**")
     
     col_btn1, col_btn2 = st.columns([1, 1.3])
     
@@ -858,16 +887,17 @@ with tab_audio:
     active_sidebar_tts = st.session_state.get("global_tts_engine", selected_tts_engine)
     col_t1, col_t2, col_t3 = st.columns([1.2, 1.2, 1])
     with col_t1:
-        tts_options = ["무료 Edge-TTS (고속/즉시 사용, 추천)", "Google Gemini-TTS (GenAI)", "Qwen3-TTS (로컬 서버 7860)"]
-        default_tts_idx = 0 if active_sidebar_tts == "edge" else (1 if active_sidebar_tts == "gemini" else 2)
-        engine_choice = st.radio(
-            "TTS 엔진 선택 (좌측 사이드바 연동)",
-            tts_options,
-            index=default_tts_idx,
-            key=f"tab3_tts_engine_choice_{selected_folder}"
-        )
-        engine_code = "edge" if "Edge" in engine_choice else ("gemini" if "Gemini" in engine_choice else "qwen")
-        st.session_state["global_tts_engine"] = engine_code
+        st.markdown("#### ⚙️ 적용된 음성 엔진")
+        if active_sidebar_tts == "edge":
+            st.success("⚡ **무료 Edge-TTS** (고속/무제한)")
+            st.caption("좌측 사이드바 메뉴에서 변경 가능")
+        elif active_sidebar_tts == "gemini":
+            st.success("✨ **Google Gemini-TTS** (GenAI)")
+            st.caption("좌측 사이드바 메뉴에서 변경 가능")
+        else:
+            st.success("🎙️ **로컬 Qwen3-TTS** (클로닝)")
+            st.caption("좌측 사이드바 메뉴에서 변경 가능")
+        engine_code = active_sidebar_tts
 
     with col_t2:
         if engine_code == "edge":
@@ -993,17 +1023,36 @@ with tab_images:
     st.markdown("### 🎨 6개 씬 AI 이미지 일괄 생성")
     st.markdown("쇼츠 영상 6개 컷에 필요한 **초고화질 실사 AI 에셋을 일괄 생성**하고, 찌그러짐 없는 완벽한 **9:16 (1080x1920) 규격**으로 자동 크롭 분할합니다.")
 
+    with st.expander("💡 무료 이미지 생성 엔진 및 빠른 발급 가이드"):
+        st.markdown("""
+- **1. 무료 FLUX (Pollinations)**:
+  - 완전 무료 오픈 서버를 이용합니다. IP당 45초 쿨다운 제한이 있어 연속 요청 시 자동 대기 후 재시도합니다.
+  - [enter.pollinations.ai](https://enter.pollinations.ai)에서 구글/깃허브 무료 로그인 후 발급받은 키를 `.env`에 `POLLINATIONS_API_KEY=sk_...` 로 넣으시면 **45초 쿨타임 없이 5초 만에 고속 생성**됩니다.
+- **2. Hugging Face FLUX**:
+  - [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)에서 무료 계정 생성 후 `Read` 토큰 생성.
+  - `.env`에 `HF_TOKEN=hf_...` 등록 시 서버리스 무료 생성.
+- **3. SiliconFlow FLUX**:
+  - [siliconflow.cn](https://cloud.siliconflow.cn) 가입 시 수천 장 분량(2천만 토큰) 무료 제공.
+  - `.env`에 `SILICONFLOW_API_KEY=sk-...` 등록 시 2초 초고속 생성.
+        """)
+
     col_im1, col_im2 = st.columns([1.2, 1.2])
     with col_im1:
+        st.markdown("#### ⚙️ 적용된 이미지 엔진")
         cur_global_engine = st.session_state.get("global_image_engine", selected_img_engine)
-        def_idx = 0 if cur_global_engine == "flux" else 1
-        img_engine = st.radio(
-            "이미지 생성 AI 엔진 (좌측 사이드바 메뉴 연동)",
-            options=["무료 FLUX (Pollinations 무료/무제한)", "Google Gemini (Imagen/실물 레퍼런스)"],
-            index=def_idx,
-            key=f"tab5_img_engine_radio_{selected_folder}"
-        )
-        img_engine_code = "flux" if "FLUX" in img_engine else "gemini"
+        if cur_global_engine == "flux":
+            st.success("⚡ **무료 FLUX (Pollinations)**")
+            st.caption("좌측 사이드바 메뉴에서 변경 가능 | 45초 쿨다운 자동대기")
+        elif cur_global_engine == "gemini":
+            st.success("✨ **Google Gemini (실물 사진 레퍼런스)**")
+            st.caption("좌측 사이드바 메뉴에서 변경 가능")
+        elif cur_global_engine == "hf":
+            st.success("🤗 **Hugging Face FLUX.1-schnell**")
+            st.caption("좌측 사이드바 메뉴에서 변경 가능")
+        else:
+            st.success("🚀 **SiliconFlow FLUX (2천만 무료 토큰)**")
+            st.caption("좌측 사이드바 메뉴에서 변경 가능")
+        img_engine_code = cur_global_engine
 
     with col_im2:
         img_mode = st.selectbox(
