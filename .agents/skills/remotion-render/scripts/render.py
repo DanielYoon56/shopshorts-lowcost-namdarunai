@@ -291,8 +291,8 @@ def main():
         video_file = f"scene{scene_id}.mp4"
         scene["has_video"] = os.path.exists(os.path.join(folder_path, video_file))
 
-    # 오디오 파일 탐색 (output_1.5x.wav, output_1.2x.wav 또는 기타 wav)
-    audio_candidates = ["output_1.5x.wav", "output_1.2x.wav", "output.wav"]
+    # 오디오 파일 탐색 (1.2배속 표준 음성 우선, 그 외 일반 wav 또는 1.5배속)
+    audio_candidates = ["output_1.2x.wav", "output.wav", "output_1.5x.wav"]
     detected_audio_file = None
     for ac in audio_candidates:
         if os.path.exists(os.path.join(folder_path, ac)):

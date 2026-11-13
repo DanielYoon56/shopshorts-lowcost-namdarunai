@@ -1534,7 +1534,11 @@ with tab_video:
             st.info("💡 동영상 클립이 없는 경우, 5번 탭에서 생성된 9:16 실사 이미지 에셋들을 기반으로 자동 조립 렌더링됩니다.")
 
     with col_r2:
-        no_audio_opt = st.checkbox("배경 원본 오디오 보존 (--no-audio)", value=False)
+        no_audio_opt = st.checkbox(
+            "배경 비디오 원본 오디오 보존 (캡컷 소리 그대로 사용)",
+            value=True,
+            help="체크 시(기본값) 캡컷 등에서 가져온 비디오 자체의 음성/나레이션/BGM을 100% 그대로 유지하고 자막만 오버레이합니다. 체크 해제 시 폴더 내 별도 생성된 WAV 음성 파일로 덮어씌웁니다."
+        )
 
     col_btn_render, col_btn_studio = st.columns([1.5, 1])
     with col_btn_render:
