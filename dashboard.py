@@ -55,12 +55,174 @@ st.set_page_config(
 # 커스텀 스타일
 st.markdown("""
 <style>
-    .main-title { font-size: 2.1rem; font-weight: 700; margin-bottom: 0.2rem; }
-    .sub-title { font-size: 1.05rem; color: #888; margin-bottom: 1.5rem; }
-    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
-    .badge-done { background-color: #d1fae5; color: #065f46; }
-    .badge-wait { background-color: #fef3c7; color: #92400e; }
-    .badge-none { background-color: #f3f4f6; color: #4b5563; }
+    /* 전체 타이포그래피 및 레이아웃 */
+    .main-title { font-size: 1.85rem; font-weight: 800; margin-bottom: 0.2rem; letter-spacing: -0.02em; }
+    .sub-title { font-size: 0.95rem; color: #64748b; margin-bottom: 1.2rem; line-height: 1.4; }
+    .status-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+    .badge-done { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .badge-wait { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .badge-none { background-color: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+    /* 사이드바 고밀도 전문가 디자인 (Compact Control Deck) */
+    [data-testid="stSidebar"] {
+        padding-top: 0.8rem !important;
+        border-right: 1px solid rgba(140, 149, 159, 0.15) !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.45rem !important;
+    }
+    
+    /* 사이드바 헤더 및 브랜드 */
+    .deck-header {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding-bottom: 10px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid rgba(140, 149, 159, 0.2);
+    }
+    .deck-icon-box {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        box-shadow: 0 2px 5px rgba(79, 70, 229, 0.35);
+    }
+    .deck-title {
+        font-weight: 800;
+        font-size: 0.95rem;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+    }
+    .deck-sub {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        font-weight: 500;
+    }
+    
+    /* 섹션 레이블 */
+    .deck-section-title {
+        font-size: 0.74rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6366f1;
+        margin-top: 4px;
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    /* 위젯 간격 축소 및 폰트 촘촘화 */
+    [data-testid="stSidebar"] label {
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        color: #334155 !important;
+        margin-bottom: 2px !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stSidebar"] label {
+            color: #cbd5e1 !important;
+        }
+    }
+    [data-testid="stSidebar"] .stSelectbox, 
+    [data-testid="stSidebar"] .stRadio,
+    [data-testid="stSidebar"] .stTextInput {
+        margin-bottom: 2px !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] {
+        gap: 3px !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label {
+        padding: 2px 6px !important;
+        border-radius: 5px !important;
+        margin: 0 !important;
+        font-size: 0.77rem !important;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] > label p {
+        font-size: 0.77rem !important;
+        line-height: 1.25 !important;
+    }
+    [data-testid="stSidebar"] .stCaption {
+        font-size: 0.72rem !important;
+        line-height: 1.25 !important;
+        color: #64748b !important;
+        margin-top: 1px !important;
+        margin-bottom: 4px !important;
+    }
+    [data-testid="stSidebar"] hr {
+        margin: 8px 0 !important;
+        border-color: rgba(140, 149, 159, 0.15) !important;
+    }
+    [data-testid="stSidebar"] .stExpander {
+        border: 1px solid rgba(140, 149, 159, 0.2) !important;
+        border-radius: 6px !important;
+        margin-top: 4px !important;
+        margin-bottom: 4px !important;
+    }
+    [data-testid="stSidebar"] .stExpander details summary {
+        padding: 4px 8px !important;
+        font-size: 0.76rem !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stSidebar"] button {
+        border-radius: 6px !important;
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+        padding: 0.3rem 0.6rem !important;
+        min-height: 32px !important;
+    }
+
+    /* 시스템 상태 2열 뱃지 그리드 */
+    .status-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        margin-top: 4px;
+        margin-bottom: 8px;
+    }
+    .status-pill {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 6px;
+        border-radius: 5px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .pill-green {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .pill-red {
+        background: rgba(239, 68, 68, 0.1);
+        color: #dc2626;
+        border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .pill-gray {
+        background: rgba(148, 163, 184, 0.1);
+        color: #64748b;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .dot-green { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.6); }
+    .dot-red { background: #ef4444; }
+    .dot-gray { background: #94a3b8; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -279,14 +441,21 @@ def sync_remotion_active_project(folder_path):
 # 사이드바: 프로젝트 탐색 & 환경 설정 상태
 # ------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 🎬 Loco ShopShorts")
-    st.markdown("---")
+    # 1. 고밀도 브랜드 헤더
+    st.markdown("""
+    <div class="deck-header">
+        <div class="deck-icon-box">🎬</div>
+        <div>
+            <div class="deck-title">ShopShorts AI Studio</div>
+            <div class="deck-sub">Control Deck • Low-Cost Engine</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     folders = get_project_folders()
     
-    st.markdown("#### 📁 프로젝트 선택")
+    st.markdown('<div class="deck-section-title">📁 프로젝트 워크스페이스</div>', unsafe_allow_html=True)
     if folders:
-        # 세션에 기록된 타겟 폴더가 있으면 해당 인덱스 선택
         target_folder = st.session_state.get("selected_project_folder")
         default_idx = folders.index(target_folder) if (target_folder and target_folder in folders) else 0
         selected_folder = st.selectbox(
@@ -294,6 +463,7 @@ with st.sidebar:
             folders,
             index=default_idx,
             key="main_project_selector",
+            label_visibility="collapsed",
             help="outputs 디렉토리 내의 프로젝트 폴더입니다."
         )
         st.session_state["selected_project_folder"] = selected_folder
@@ -302,9 +472,9 @@ with st.sidebar:
         selected_folder = None
 
     # 새 프로젝트 폴더 생성
-    with st.expander("➕ 새 프로젝트 폴더 생성"):
+    with st.expander("➕ 새 프로젝트 생성"):
         default_new_name = datetime.now().strftime("%y%m%d_%H%M")
-        new_folder_name = st.text_input("폴더명", value=default_new_name, key="new_folder_name_input")
+        new_folder_name = st.text_input("새 폴더명", value=default_new_name, key="new_folder_name_input", label_visibility="collapsed")
         if st.button("폴더 생성", use_container_width=True):
             clean_name = new_folder_name.strip()
             if clean_name:
@@ -312,54 +482,53 @@ with st.sidebar:
                 os.makedirs(new_path, exist_ok=True)
                 os.makedirs(os.path.join(new_path, "assets"), exist_ok=True)
                 os.makedirs(os.path.join(new_path, "images"), exist_ok=True)
-                # 생성된 새 폴더를 즉시 선택 상태로 전환
                 st.session_state["selected_project_folder"] = clean_name
                 st.session_state["main_project_selector"] = clean_name
                 st.session_state["_last_loaded_project"] = clean_name
-                # 이전 프로젝트의 임시 상태 완전 초기화
                 st.session_state.pop("coupang_ingested", None)
                 st.session_state.pop("last_uploaded_capcut_sig", None)
                 st.session_state.pop("uploaded_video_just_now", None)
                 st.success(f"생성 완료: {clean_name}")
                 st.rerun()
 
-    st.markdown("---")
-    st.markdown("### 🌐 전역 엔진 & 스타일 설정 (Global)")
-    st.caption("원클릭 올인원 풀 파이프라인 및 모든 탭에 일괄 적용됩니다.")
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown('<div class="deck-section-title">⚙️ 전역 AI 파이프라인 제어</div>', unsafe_allow_html=True)
 
-    st.markdown("#### ✍️ 쇼츠 대본 스타일 선택")
+    # 1) 대본 스타일
+    st.markdown('<div style="font-size:0.75rem; font-weight:700; color:#475569; margin-top:3px; margin-bottom:2px;">✍️ 대본 스타일 (Tone & Manner)</div>', unsafe_allow_html=True)
     sidebar_script_style_choice = st.selectbox(
         "사용할 대본 스토리텔링 스타일",
         options=[
-            "💡 문제공감 & 해결형 (일상 불편 공감 + 해결책 제시, 기본 추천)",
-            "📖 비하인드 썰 & 스토리텔링형 (도파민 후킹 + 개발 비화 / 품절 대란)",
-            "🔍 내돈내산 솔직 리뷰형 (3개월 찐사용자 시점 + 솔직 체감)",
-            "⚡ 초고속 결과선공개형 (3초 즉시 증명 + 빠른 템포 USP)",
-            "🚨 충격 경고 & 반전형 (호기심 유발 후킹 + 팩트폭격 솔루션)"
+            "💡 문제공감 & 해결형 (일상 공감, 기본 추천)",
+            "📖 비하인드 썰 & 스토리텔링형 (도파민/썰)",
+            "🔍 내돈내산 솔직 리뷰형 (3개월 찐후기)",
+            "⚡ 초고속 결과선공개형 (3초 즉시 증명)",
+            "🚨 충격 경고 & 반전형 (호기심/반전 솔루션)"
         ],
         index=0,
         key="sidebar_script_style_select",
+        label_visibility="collapsed",
         help="• 문제공감: 일상 속 불편함에 깊이 공감하고 제품 해결책 제시\n• 비하인드 썰: 창업자 비화, 품절 대란 등 도파민 넘치는 썰로 몰입\n• 내돈내산 리뷰: 찐 소비자의 솔직 담백한 리얼 리뷰\n• 초고속 결과선공개: 3초 만에 결과를 선공개하고 핵심 기능 속도감 있게 전달\n• 충격 경고: 강렬한 경고성 후킹 후 상식을 깨는 반전 솔루션"
     )
     if "문제공감" in sidebar_script_style_choice:
         selected_script_style = "empathy"
-        st.caption("✨ 일상 불편함 공감 ➔ 즉각적인 제품 기능 및 해결책 제시")
+        st.caption("✨ 일상 불편함 공감 ➔ 즉각적인 제품 해결책 제시")
     elif "비하인드" in sidebar_script_style_choice:
         selected_script_style = "story"
-        st.caption("✨ 흥미진진한 비하인드 썰과 도파민 스토리텔링으로 몰입")
+        st.caption("✨ 창업 비화/품절 대란 등 도파민 썰로 극대화")
     elif "내돈내산" in sidebar_script_style_choice:
         selected_script_style = "review"
-        st.caption("✨ 3개월 직접 써본 소비자의 솔직 담백한 리얼 리뷰")
+        st.caption("✨ 3개월 찐사용자의 과장 없는 솔직 리얼 보이스")
     elif "결과선공개" in sidebar_script_style_choice:
         selected_script_style = "fast_usp"
-        st.caption("✨ 3초 즉시 결과 선공개 + 빠른 템포의 핵심 장점(USP) 증명")
+        st.caption("✨ 3초 즉시 결과 증명 + 빠른 템포의 핵심 장점")
     else:
         selected_script_style = "warning"
-        st.caption("✨ '아직도 모르셨다면 당장 멈추세요' 강렬한 경고 ➔ 반전 솔루션")
+        st.caption("✨ '아직도 모르셨다면 당장 멈추세요' 경고 ➔ 반전")
     st.session_state["global_script_style"] = selected_script_style
 
-    st.markdown("---")
-    st.markdown("#### 🎨 AI 이미지 생성 엔진")
+    # 2) AI 이미지 엔진
+    st.markdown('<div style="font-size:0.75rem; font-weight:700; color:#475569; margin-top:5px; margin-bottom:2px;">🎨 AI 이미지 생성 엔진</div>', unsafe_allow_html=True)
     g_key = os.getenv("GEMINI_API_KEY")
     hf_token = os.getenv("HF_TOKEN")
     sf_key = os.getenv("SILICONFLOW_API_KEY")
@@ -368,11 +537,12 @@ with st.sidebar:
         "사용할 AI 이미지 엔진",
         options=[
             "Google Gemini (실물 사진 레퍼런스, 추천)",
-            "Hugging Face FLUX (HF_TOKEN 무료)",
-            "SiliconFlow FLUX (2,000만 토큰 무료)"
+            "Hugging Face FLUX (HF 무료 토큰)",
+            "SiliconFlow FLUX (2천만 무료 토큰)"
         ],
         index=0,
         key="sidebar_img_engine_radio",
+        label_visibility="collapsed",
         help="• Google Gemini: 첨부된 실제 상품 사진의 외형을 100% 반영하여 6컷 정밀 생성 (추천)\n• Hugging Face: HF 무료 토큰으로 FLUX.1-schnell 생성\n• SiliconFlow: 가입 즉시 2천만 토큰 무료 제공"
     )
     if "Gemini" in sidebar_img_choice:
@@ -384,66 +554,71 @@ with st.sidebar:
     st.session_state["global_image_engine"] = selected_img_engine
 
     if selected_img_engine == "gemini":
-        if g_key and len(g_key) > 5:
-            st.caption("✨ Gemini 실물 사진 레퍼런스 모드 활성화됨 (9:16 정밀 생성)")
-        else:
-            st.caption("⚠️ .env에 GEMINI_API_KEY 등록 필요")
+        st.caption("✨ 실물 사진 1:1 레퍼런스 9:16 정밀 생성 모드" if (g_key and len(g_key) > 5) else "⚠️ .env에 GEMINI_API_KEY 등록 필요")
     elif selected_img_engine == "hf":
-        st.caption("🤗 Hugging Face Serverless FLUX 모드" if hf_token else "⚠️ .env에 HF_TOKEN 등록 필요")
+        st.caption("🤗 Hugging Face Serverless FLUX 활성화" if hf_token else "⚠️ .env에 HF_TOKEN 등록 필요")
     else:
-        st.caption("🚀 SiliconFlow 고속 생성 모드" if sf_key else "⚠️ .env에 SILICONFLOW_API_KEY 등록 필요")
+        st.caption("🚀 SiliconFlow 고속 생성 활성화" if sf_key else "⚠️ .env에 SILICONFLOW_API_KEY 등록 필요")
 
-    st.markdown("---")
-    st.markdown("#### 🔊 TTS 음성 엔진 선택")
+    # 3) TTS 음성 엔진
+    st.markdown('<div style="font-size:0.75rem; font-weight:700; color:#475569; margin-top:5px; margin-bottom:2px;">🔊 TTS 나레이션 음성</div>', unsafe_allow_html=True)
     sidebar_tts_choice = st.radio(
         "사용할 TTS 나레이션 엔진",
         options=["무료 Edge-TTS (고속/무제한 추천)", "Google Gemini-TTS (GenAI)", "Qwen3-TTS (로컬 7860)"],
         index=0,
         key="sidebar_tts_engine_radio",
+        label_visibility="collapsed",
         help="• 무료 Edge-TTS: Microsoft Edge 음성 합성 (가장 안정적이고 고품질 무료 무제한 생성)\n• Gemini-TTS: Google GenAI 음성 모델\n• Qwen3-TTS: 로컬 음성 클로닝"
     )
     selected_tts_engine = "edge" if "Edge" in sidebar_tts_choice else ("gemini" if "Gemini" in sidebar_tts_choice else "qwen")
     st.session_state["global_tts_engine"] = selected_tts_engine
     if selected_tts_engine == "edge":
-        st.caption("⚡ 무료 Edge-TTS (ko-KR-SunHiNeural) 활성화됨")
+        st.caption("⚡ Edge-TTS (ko-KR-SunHiNeural) 고속 활성화")
     elif selected_tts_engine == "gemini":
-        st.caption("✨ Google Gemini TTS (Kore/Puck) 활성화됨")
+        st.caption("✨ Google Gemini TTS (Kore/Puck) 활성화")
     else:
-        st.caption("🎙️ 로컬 Qwen3-TTS 보이스 클론 활성화됨")
+        st.caption("🎙️ 로컬 Qwen3-TTS 보이스 클론 활성화")
 
-    st.markdown("---")
-    st.markdown("#### ⚙️ 시스템 상태")
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown('<div class="deck-section-title">🔌 엔진 연동 상태</div>', unsafe_allow_html=True)
     
     openai_key = os.getenv("OPENAI_API_KEY")
-    if openai_key and len(openai_key) > 5:
-        st.markdown("🟢 **OpenAI**: 연동됨 (Whisper/GPT-4o)")
-    else:
-        st.markdown("🔴 **OpenAI**: 키 미설정 (`.env`)")
-        
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if gemini_key and len(gemini_key) > 5:
-        st.markdown("🟢 **Gemini API**: 연동됨 (Gemini 2.0)")
-    else:
-        st.markdown("⚪ **Gemini API**: 미설정 (선택)")
+    oa_ok = bool(openai_key and len(openai_key) > 5)
+    oa_cls = "pill-green" if oa_ok else "pill-red"
+    oa_dot = "dot-green" if oa_ok else "dot-red"
+    oa_txt = "OpenAI 연결" if oa_ok else "OpenAI 누락"
 
-    st.markdown("🟢 **Edge-TTS**: 준비 완료 (무료/고속)")
-    st.markdown("🟢 **FLUX 이미지**: 준비 완료 (무료/고속)")
+    gm_ok = bool(g_key and len(g_key) > 5)
+    gm_cls = "pill-green" if gm_ok else "pill-gray"
+    gm_dot = "dot-green" if gm_ok else "dot-gray"
+    gm_txt = "Gemini 연결" if gm_ok else "Gemini 미설정"
+
+    studio_active = is_port_open(port=3000)
+    st_cls = "pill-green" if studio_active else "pill-gray"
+    st_dot = "dot-green" if studio_active else "dot-gray"
+    st_txt = "Studio :3000" if studio_active else "Studio 대기"
+
+    st.markdown(f"""
+    <div class="status-grid">
+        <div class="status-pill {oa_cls}"><span class="status-dot {oa_dot}"></span> {oa_txt}</div>
+        <div class="status-pill {gm_cls}"><span class="status-dot {gm_dot}"></span> {gm_txt}</div>
+        <div class="status-pill pill-green"><span class="status-dot dot-green"></span> Edge-TTS 준비</div>
+        <div class="status-pill {st_cls}"><span class="status-dot {st_dot}"></span> {st_txt}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Remotion Studio 상태 및 제어
-    studio_active = is_port_open(port=3000)
     if studio_active:
-        st.markdown("🟢 **Remotion Studio**: 실행 중 (3000)")
-        st.link_button("🌐 Studio 프리뷰 열기", "http://localhost:3000", use_container_width=True)
+        st.link_button("🌐 Studio 프리뷰 열기 (포트 3000)", "http://localhost:3000", use_container_width=True)
     else:
-        st.markdown("⚪ **Remotion Studio**: 미실행")
         if st.button("▶️ Remotion Studio 시작", use_container_width=True):
             npx_bin = "npx.cmd" if sys.platform == "win32" else "npx"
             subprocess.Popen([npx_bin, "remotion", "studio", "--port=3000"], cwd=MY_VIDEO_DIR)
             time.sleep(1.5)
             st.rerun()
 
-    st.markdown("---")
-    st.markdown("#### ⚡ 퀵 액션 (바로 렌더링)")
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown('<div class="deck-section-title">⚡ 빠른 렌더 액션</div>', unsafe_allow_html=True)
     if st.button("🎥 9:16 비디오 렌더링 시작", use_container_width=True):
         if not selected_folder:
             st.warning("먼저 작업 폴더를 선택하세요.")
