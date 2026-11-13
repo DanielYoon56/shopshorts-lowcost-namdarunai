@@ -52,83 +52,227 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 커스텀 스타일
+# 커스텀 스타일: Google AI Studio 스타일 테마
 st.markdown("""
 <style>
-    /* 전체 타이포그래피 및 레이아웃 */
-    .main-title { font-size: 1.85rem; font-weight: 800; margin-bottom: 0.2rem; letter-spacing: -0.02em; }
-    .sub-title { font-size: 0.95rem; color: #64748b; margin-bottom: 1.2rem; line-height: 1.4; }
-    .status-badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
-    .badge-done { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-    .badge-wait { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-    .badge-none { background-color: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap');
 
-    /* 사이드바 고밀도 전문가 디자인 (Compact Control Deck) */
-    [data-testid="stSidebar"] {
-        padding-top: 0.8rem !important;
-        border-right: 1px solid rgba(140, 149, 159, 0.15) !important;
+    /* Google AI Studio 기본 테마 */
+    html, body, [class*="css"] {
+        font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
     }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-        gap: 0.45rem !important;
-    }
-    
-    /* 사이드바 헤더 및 브랜드 */
-    .deck-header {
+
+    /* 상단 Google AI Studio 네비게이션 헤더 */
+    .aistudio-topbar {
         display: flex;
         align-items: center;
-        gap: 9px;
-        padding-bottom: 10px;
-        margin-bottom: 8px;
-        border-bottom: 1px solid rgba(140, 149, 159, 0.2);
+        justify-content: space-between;
+        padding: 10px 18px;
+        background: #ffffff;
+        border: 1px solid #dadce0;
+        border-radius: 12px;
+        margin-bottom: 16px;
     }
-    .deck-icon-box {
-        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-        color: white;
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
+    @media (prefers-color-scheme: dark) {
+        .aistudio-topbar {
+            background: #1e1f20;
+            border-color: #3c4043;
+        }
+    }
+    .aistudio-brand {
         display: flex;
         align-items: center;
-        justify-content: center;
-        font-size: 16px;
-        box-shadow: 0 2px 5px rgba(79, 70, 229, 0.35);
+        gap: 8px;
     }
-    .deck-title {
-        font-weight: 800;
+    .aistudio-sparkle {
+        font-size: 1.3rem;
+        background: linear-gradient(135deg, #4285f4 0%, #9b72cf 50%, #d96570 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        filter: drop-shadow(0 0 6px rgba(66, 133, 244, 0.45));
+    }
+    .aistudio-brand-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+    .aistudio-slash {
+        color: #9aa0a6;
+        font-size: 1rem;
+        font-weight: 300;
+    }
+    .aistudio-brand-sub {
         font-size: 0.95rem;
-        line-height: 1.2;
-        letter-spacing: -0.02em;
-    }
-    .deck-sub {
-        font-size: 0.7rem;
-        color: #94a3b8;
+        color: #5f6368;
         font-weight: 500;
     }
+    @media (prefers-color-scheme: dark) {
+        .aistudio-brand-sub { color: #bdc1c6; }
+    }
+    .aistudio-chip {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 16px;
+        background: #e8f0fe;
+        color: #1a73e8;
+        border: 1px solid #d2e3fc;
+    }
+    @media (prefers-color-scheme: dark) {
+        .aistudio-chip {
+            background: #1e2638;
+            color: #8ab4f8;
+            border-color: #2b3b5e;
+        }
+    }
+
+    /* Google AI Studio 사이드바 (Run settings) */
+    [data-testid="stSidebar"] {
+        padding-top: 0.8rem !important;
+        background-color: #f8f9fa !important;
+        border-right: 1px solid #dadce0 !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stSidebar"] {
+            background-color: #18191a !important;
+            border-right: 1px solid #3c4043 !important;
+        }
+    }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.35rem !important;
+    }
+
+    .aistudio-sidebar-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #e8eaed;
+    }
+    @media (prefers-color-scheme: dark) {
+        .aistudio-sidebar-header { border-bottom-color: #303134; }
+    }
+    .aistudio-sidebar-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
     
-    /* 섹션 레이블 */
-    .deck-section-title {
-        font-size: 0.74rem !important;
+    .aistudio-section-header {
+        font-size: 0.68rem !important;
         font-weight: 700 !important;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #6366f1;
-        margin-top: 4px;
+        letter-spacing: 0.08em;
+        color: #5f6368;
+        margin-top: 8px;
         margin-bottom: 3px;
+    }
+    @media (prefers-color-scheme: dark) {
+        .aistudio-section-header { color: #9aa0a6; }
+    }
+
+    /* Google AI Studio 미니 상태 칩 */
+    .aistudio-chip-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+        margin-top: 4px;
+        margin-bottom: 6px;
+    }
+    .aistudio-chip-item {
         display: flex;
         align-items: center;
         gap: 5px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 0.72rem;
+        font-weight: 500;
+        border: 1px solid #dadce0;
+        background: #ffffff;
+        color: #3c4043;
     }
-    
+    @media (prefers-color-scheme: dark) {
+        .aistudio-chip-item {
+            border-color: #3c4043;
+            background: #202124;
+            color: #bdc1c6;
+        }
+    }
+    .dot-online {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #1e8e3e;
+        box-shadow: 0 0 5px rgba(30, 142, 62, 0.5);
+    }
+    .dot-offline {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #d93025;
+    }
+    .dot-idle {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #9aa0a6;
+    }
+
+    /* Google Primary Button Style (Google Blue Pill) */
+    .stButton > button[kind="primary"], [data-testid="stSidebar"] button {
+        background-color: #1a73e8 !important;
+        color: #ffffff !important;
+        border-radius: 20px !important;
+        border: none !important;
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        padding: 0.4rem 0.9rem !important;
+        box-shadow: 0 1px 2px rgba(26, 115, 232, 0.25) !important;
+        transition: background-color 0.2s, box-shadow 0.2s !important;
+    }
+    .stButton > button[kind="primary"]:hover, [data-testid="stSidebar"] button:hover {
+        background-color: #1557b0 !important;
+        box-shadow: 0 2px 6px rgba(26, 115, 232, 0.4) !important;
+    }
+
+    /* Google AI Studio 탭 스타일 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px !important;
+        border-bottom: 1px solid #dadce0 !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        .stTabs [data-baseweb="tab-list"] {
+            border-bottom: 1px solid #3c4043 !important;
+        }
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 16px !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #1a73e8 !important;
+        border-bottom-color: #1a73e8 !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        .stTabs [aria-selected="true"] {
+            color: #8ab4f8 !important;
+            border-bottom-color: #8ab4f8 !important;
+        }
+    }
+
     /* 위젯 간격 축소 및 폰트 촘촘화 */
     [data-testid="stSidebar"] label {
-        font-size: 0.78rem !important;
+        font-size: 0.77rem !important;
         font-weight: 600 !important;
-        color: #334155 !important;
-        margin-bottom: 2px !important;
+        color: #3c4043 !important;
+        margin-bottom: 1px !important;
     }
     @media (prefers-color-scheme: dark) {
         [data-testid="stSidebar"] label {
-            color: #cbd5e1 !important;
+            color: #bdc1c6 !important;
         }
     }
     [data-testid="stSidebar"] .stSelectbox, 
@@ -137,93 +281,66 @@ st.markdown("""
         margin-bottom: 2px !important;
     }
     [data-testid="stSidebar"] div[role="radiogroup"] {
-        gap: 3px !important;
+        gap: 2px !important;
     }
     [data-testid="stSidebar"] div[role="radiogroup"] > label {
         padding: 2px 6px !important;
-        border-radius: 5px !important;
+        border-radius: 4px !important;
         margin: 0 !important;
-        font-size: 0.77rem !important;
+        font-size: 0.76rem !important;
     }
     [data-testid="stSidebar"] div[role="radiogroup"] > label p {
-        font-size: 0.77rem !important;
+        font-size: 0.76rem !important;
         line-height: 1.25 !important;
     }
     [data-testid="stSidebar"] .stCaption {
-        font-size: 0.72rem !important;
+        font-size: 0.71rem !important;
         line-height: 1.25 !important;
-        color: #64748b !important;
+        color: #5f6368 !important;
         margin-top: 1px !important;
-        margin-bottom: 4px !important;
+        margin-bottom: 3px !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stSidebar"] .stCaption { color: #9aa0a6 !important; }
     }
     [data-testid="stSidebar"] hr {
-        margin: 8px 0 !important;
-        border-color: rgba(140, 149, 159, 0.15) !important;
+        margin: 6px 0 !important;
+        border-color: #e8eaed !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stSidebar"] hr { border-color: #303134 !important; }
     }
     [data-testid="stSidebar"] .stExpander {
-        border: 1px solid rgba(140, 149, 159, 0.2) !important;
-        border-radius: 6px !important;
-        margin-top: 4px !important;
-        margin-bottom: 4px !important;
+        border: 1px solid #dadce0 !important;
+        border-radius: 8px !important;
+        background: #ffffff !important;
+        margin-top: 3px !important;
+        margin-bottom: 3px !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stSidebar"] .stExpander {
+            border-color: #3c4043 !important;
+            background: #202124 !important;
+        }
     }
     [data-testid="stSidebar"] .stExpander details summary {
         padding: 4px 8px !important;
-        font-size: 0.76rem !important;
+        font-size: 0.75rem !important;
         font-weight: 600 !important;
-    }
-    [data-testid="stSidebar"] button {
-        border-radius: 6px !important;
-        font-size: 0.78rem !important;
-        font-weight: 600 !important;
-        padding: 0.3rem 0.6rem !important;
-        min-height: 32px !important;
     }
 
-    /* 시스템 상태 2열 뱃지 그리드 */
-    .status-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 5px;
-        margin-top: 4px;
-        margin-bottom: 8px;
+    /* 프로젝트 상태 칩 */
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.76rem; font-weight: 500; }
+    .badge-done { background-color: #e6f4ea; color: #137333; border: 1px solid #ceead6; }
+    .badge-wait { background-color: #fef7e0; color: #b06000; border: 1px solid #feefc3; }
+    .badge-none { background-color: #f1f3f4; color: #5f6368; border: 1px solid #dadce0; }
+    @media (prefers-color-scheme: dark) {
+        .badge-done { background-color: #132d1e; color: #81c995; border-color: #1e5230; }
+        .badge-wait { background-color: #332400; color: #fdd663; border-color: #593e00; }
+        .badge-none { background-color: #202124; color: #9aa0a6; border-color: #3c4043; }
     }
-    .status-pill {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        padding: 4px 6px;
-        border-radius: 5px;
-        font-size: 0.72rem;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .pill-green {
-        background: rgba(16, 185, 129, 0.1);
-        color: #059669;
-        border: 1px solid rgba(16, 185, 129, 0.25);
-    }
-    .pill-red {
-        background: rgba(239, 68, 68, 0.1);
-        color: #dc2626;
-        border: 1px solid rgba(239, 68, 68, 0.25);
-    }
-    .pill-gray {
-        background: rgba(148, 163, 184, 0.1);
-        color: #64748b;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-    }
-    .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        display: inline-block;
-    }
-    .dot-green { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.6); }
-    .dot-red { background: #ef4444; }
-    .dot-gray { background: #94a3b8; }
 </style>
+
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------
@@ -441,20 +558,17 @@ def sync_remotion_active_project(folder_path):
 # 사이드바: 프로젝트 탐색 & 환경 설정 상태
 # ------------------------------------------------------------------
 with st.sidebar:
-    # 1. 고밀도 브랜드 헤더
+    # Google AI Studio 사이드바 헤더 (Run settings)
     st.markdown("""
-    <div class="deck-header">
-        <div class="deck-icon-box">🎬</div>
-        <div>
-            <div class="deck-title">ShopShorts AI Studio</div>
-            <div class="deck-sub">Control Deck • Low-Cost Engine</div>
-        </div>
+    <div class="aistudio-sidebar-header">
+        <span class="aistudio-sparkle">✦</span>
+        <span class="aistudio-sidebar-title">Run settings</span>
     </div>
     """, unsafe_allow_html=True)
 
     folders = get_project_folders()
     
-    st.markdown('<div class="deck-section-title">📁 프로젝트 워크스페이스</div>', unsafe_allow_html=True)
+    st.markdown('<div class="aistudio-section-header">WORKSPACE</div>', unsafe_allow_html=True)
     if folders:
         target_folder = st.session_state.get("selected_project_folder")
         default_idx = folders.index(target_folder) if (target_folder and target_folder in folders) else 0
@@ -492,10 +606,9 @@ with st.sidebar:
                 st.rerun()
 
     st.markdown("<hr/>", unsafe_allow_html=True)
-    st.markdown('<div class="deck-section-title">⚙️ 전역 AI 파이프라인 제어</div>', unsafe_allow_html=True)
+    st.markdown('<div class="aistudio-section-header">STORY & SCRIPT STYLE</div>', unsafe_allow_html=True)
 
     # 1) 대본 스타일
-    st.markdown('<div style="font-size:0.75rem; font-weight:700; color:#475569; margin-top:3px; margin-bottom:2px;">✍️ 대본 스타일 (Tone & Manner)</div>', unsafe_allow_html=True)
     sidebar_script_style_choice = st.selectbox(
         "사용할 대본 스토리텔링 스타일",
         options=[
@@ -527,8 +640,11 @@ with st.sidebar:
         st.caption("✨ '아직도 모르셨다면 당장 멈추세요' 경고 ➔ 반전")
     st.session_state["global_script_style"] = selected_script_style
 
+    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown('<div class="aistudio-section-header">GENERATION ENGINES</div>', unsafe_allow_html=True)
+
     # 2) AI 이미지 엔진
-    st.markdown('<div style="font-size:0.75rem; font-weight:700; color:#475569; margin-top:5px; margin-bottom:2px;">🎨 AI 이미지 생성 엔진</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#5f6368; margin-top:3px; margin-bottom:2px;">IMAGE MODEL</div>', unsafe_allow_html=True)
     g_key = os.getenv("GEMINI_API_KEY")
     hf_token = os.getenv("HF_TOKEN")
     sf_key = os.getenv("SILICONFLOW_API_KEY")
@@ -554,14 +670,14 @@ with st.sidebar:
     st.session_state["global_image_engine"] = selected_img_engine
 
     if selected_img_engine == "gemini":
-        st.caption("✨ 실물 사진 1:1 레퍼런스 9:16 정밀 생성 모드" if (g_key and len(g_key) > 5) else "⚠️ .env에 GEMINI_API_KEY 등록 필요")
+        st.caption("✨ 실물 사진 1:1 레퍼런스 9:16 정밀 생성" if (g_key and len(g_key) > 5) else "⚠️ .env에 GEMINI_API_KEY 필요")
     elif selected_img_engine == "hf":
-        st.caption("🤗 Hugging Face Serverless FLUX 활성화" if hf_token else "⚠️ .env에 HF_TOKEN 등록 필요")
+        st.caption("🤗 Hugging Face Serverless FLUX 활성화" if hf_token else "⚠️ .env에 HF_TOKEN 필요")
     else:
-        st.caption("🚀 SiliconFlow 고속 생성 활성화" if sf_key else "⚠️ .env에 SILICONFLOW_API_KEY 등록 필요")
+        st.caption("🚀 SiliconFlow 고속 생성 활성화" if sf_key else "⚠️ .env에 SILICONFLOW_API_KEY 필요")
 
     # 3) TTS 음성 엔진
-    st.markdown('<div style="font-size:0.75rem; font-weight:700; color:#475569; margin-top:5px; margin-bottom:2px;">🔊 TTS 나레이션 음성</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#5f6368; margin-top:5px; margin-bottom:2px;">SPEECH & TTS</div>', unsafe_allow_html=True)
     sidebar_tts_choice = st.radio(
         "사용할 TTS 나레이션 엔진",
         options=["무료 Edge-TTS (고속/무제한 추천)", "Google Gemini-TTS (GenAI)", "Qwen3-TTS (로컬 7860)"],
@@ -573,37 +689,34 @@ with st.sidebar:
     selected_tts_engine = "edge" if "Edge" in sidebar_tts_choice else ("gemini" if "Gemini" in sidebar_tts_choice else "qwen")
     st.session_state["global_tts_engine"] = selected_tts_engine
     if selected_tts_engine == "edge":
-        st.caption("⚡ Edge-TTS (ko-KR-SunHiNeural) 고속 활성화")
+        st.caption("⚡ Edge-TTS (SunHiNeural) 고속 활성화")
     elif selected_tts_engine == "gemini":
         st.caption("✨ Google Gemini TTS (Kore/Puck) 활성화")
     else:
         st.caption("🎙️ 로컬 Qwen3-TTS 보이스 클론 활성화")
 
     st.markdown("<hr/>", unsafe_allow_html=True)
-    st.markdown('<div class="deck-section-title">🔌 엔진 연동 상태</div>', unsafe_allow_html=True)
+    st.markdown('<div class="aistudio-section-header">ENVIRONMENT STATUS</div>', unsafe_allow_html=True)
     
     openai_key = os.getenv("OPENAI_API_KEY")
     oa_ok = bool(openai_key and len(openai_key) > 5)
-    oa_cls = "pill-green" if oa_ok else "pill-red"
-    oa_dot = "dot-green" if oa_ok else "dot-red"
+    oa_dot = "dot-online" if oa_ok else "dot-offline"
     oa_txt = "OpenAI 연결" if oa_ok else "OpenAI 누락"
 
     gm_ok = bool(g_key and len(g_key) > 5)
-    gm_cls = "pill-green" if gm_ok else "pill-gray"
-    gm_dot = "dot-green" if gm_ok else "dot-gray"
-    gm_txt = "Gemini 연결" if gm_ok else "Gemini 미설정"
+    gm_dot = "dot-online" if gm_ok else "dot-idle"
+    gm_txt = "Gemini API" if gm_ok else "Gemini 미설정"
 
     studio_active = is_port_open(port=3000)
-    st_cls = "pill-green" if studio_active else "pill-gray"
-    st_dot = "dot-green" if studio_active else "dot-gray"
+    st_dot = "dot-online" if studio_active else "dot-idle"
     st_txt = "Studio :3000" if studio_active else "Studio 대기"
 
     st.markdown(f"""
-    <div class="status-grid">
-        <div class="status-pill {oa_cls}"><span class="status-dot {oa_dot}"></span> {oa_txt}</div>
-        <div class="status-pill {gm_cls}"><span class="status-dot {gm_dot}"></span> {gm_txt}</div>
-        <div class="status-pill pill-green"><span class="status-dot dot-green"></span> Edge-TTS 준비</div>
-        <div class="status-pill {st_cls}"><span class="status-dot {st_dot}"></span> {st_txt}</div>
+    <div class="aistudio-chip-grid">
+        <div class="aistudio-chip-item"><span class="{oa_dot}"></span> {oa_txt}</div>
+        <div class="aistudio-chip-item"><span class="{gm_dot}"></span> {gm_txt}</div>
+        <div class="aistudio-chip-item"><span class="dot-online"></span> Edge-TTS 준비</div>
+        <div class="aistudio-chip-item"><span class="{st_dot}"></span> {st_txt}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -618,7 +731,7 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("<hr/>", unsafe_allow_html=True)
-    st.markdown('<div class="deck-section-title">⚡ 빠른 렌더 액션</div>', unsafe_allow_html=True)
+    st.markdown('<div class="aistudio-section-header">ACTIONS</div>', unsafe_allow_html=True)
     if st.button("🎥 9:16 비디오 렌더링 시작", use_container_width=True):
         if not selected_folder:
             st.warning("먼저 작업 폴더를 선택하세요.")
@@ -640,10 +753,19 @@ with st.sidebar:
                     st.code(logs[-800:])
 
 # ------------------------------------------------------------------
-# 메인 화면
+# 메인 화면: Google AI Studio 스타일 상단 네비게이션
 # ------------------------------------------------------------------
-st.markdown('<div class="main-title">🎬 Loco ShopShorts Studio</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">AI 제품 조사부터 대본, 고속 TTS, Whisper 자막 싱크, AI 이미지 일괄 생성, 9:16 비디오 렌더링까지 올인원 제어합니다.</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="aistudio-topbar">
+    <div class="aistudio-brand">
+        <span class="aistudio-sparkle">✦</span>
+        <span class="aistudio-brand-title">Google AI Studio</span>
+        <span class="aistudio-slash">/</span>
+        <span class="aistudio-brand-sub">ShopShorts Studio</span>
+    </div>
+    <div class="aistudio-chip">✦ Gemini 2.0 • Multimodal Studio</div>
+</div>
+""", unsafe_allow_html=True)
 
 if not selected_folder:
     st.warning("👈 왼쪽 사이드바에서 프로젝트 폴더를 생성하거나 선택해 주세요.")
