@@ -730,28 +730,6 @@ with st.sidebar:
             time.sleep(1.5)
             st.rerun()
 
-    st.markdown("<hr/>", unsafe_allow_html=True)
-    st.markdown('<div class="aistudio-section-header">ACTIONS</div>', unsafe_allow_html=True)
-    if st.button("🎥 9:16 비디오 렌더링 시작", use_container_width=True):
-        if not selected_folder:
-            st.warning("먼저 작업 폴더를 선택하세요.")
-        else:
-            p_path = os.path.join(OUTPUTS_DIR, selected_folder)
-            st_check = check_project_status(p_path)
-            if not st_check["scenes"]:
-                st.warning("먼저 4번 탭에서 자막(`scene_data.json`)을 생성해 주세요.")
-            else:
-                progress_bar = st.progress(0.0)
-                status_text = st.empty()
-                success, logs = render_remotion_with_progress(p_path, progress_bar, status_text)
-                if success:
-                    st.success("✅ 비디오 렌더링 완료!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("렌더링 실패:")
-                    st.code(logs[-800:])
-
 # ------------------------------------------------------------------
 # 메인 화면: Google AI Studio 스타일 상단 네비게이션
 # ------------------------------------------------------------------
