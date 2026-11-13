@@ -1,213 +1,213 @@
 {
-  "folderName": "261109_2145",
+  "folderName": "가습기 신일",
   "audioFileName": "output_1.2x.wav",
-  "durationInFrames": 609,
+  "durationInFrames": 768,
   "sceneData": [
     {
       "scene_id": 1,
       "start": 0.0,
-      "end": 1.0,
-      "duration_frames": 30,
+      "end": 1.61,
+      "duration_frames": 48,
       "text_blocks": [
         {
-          "text": "아직도 배터리",
+          "text": "아침마다 목 칼칼하고",
           "start": 0.0,
-          "end": 1.0
+          "end": 1.61
         }
       ]
     },
     {
       "scene_id": 2,
-      "start": 1.0,
-      "end": 1.83,
-      "duration_frames": 24,
+      "start": 1.61,
+      "end": 3.21,
+      "duration_frames": 47,
       "text_blocks": [
         {
-          "text": "언제 꺼질지",
-          "start": 1.0,
-          "end": 1.83
+          "text": "피부 당기던 침실 공기",
+          "start": 1.61,
+          "end": 3.21
         }
       ]
     },
     {
       "scene_id": 3,
-      "start": 1.83,
-      "end": 3.0,
-      "duration_frames": 35,
+      "start": 3.21,
+      "end": 5.0,
+      "duration_frames": 53,
       "text_blocks": [
         {
-          "text": "불안해 하세요?",
-          "start": 1.83,
-          "end": 3.0
+          "text": "이제 완벽 해결입니다.",
+          "start": 3.21,
+          "end": 5.0
         }
       ]
     },
     {
       "scene_id": 4,
-      "start": 3.0,
-      "end": 3.82,
-      "duration_frames": 24,
+      "start": 5.0,
+      "end": 6.38,
+      "duration_frames": 41,
       "text_blocks": [
         {
-          "text": "뚜껑 열면",
-          "start": 3.0,
-          "end": 3.82
+          "text": "밤새 건조해서 깨거나",
+          "start": 5.0,
+          "end": 6.38
         }
       ]
     },
     {
       "scene_id": 5,
-      "start": 3.82,
-      "end": 4.85,
-      "duration_frames": 30,
+      "start": 6.38,
+      "end": 7.76,
+      "duration_frames": 41,
       "text_blocks": [
         {
-          "text": "좌우 잔량이",
-          "start": 3.82,
-          "end": 4.85
+          "text": "시끄러운 모터 소리에",
+          "start": 6.38,
+          "end": 7.76
         }
       ]
     },
     {
       "scene_id": 6,
-      "start": 4.85,
-      "end": 6.5,
-      "duration_frames": 49,
+      "start": 7.76,
+      "end": 8.84,
+      "duration_frames": 32,
       "text_blocks": [
         {
-          "text": "숫자로 딱 보입니다",
-          "start": 4.85,
-          "end": 6.5
+          "text": "뒤척이셨나요?",
+          "start": 7.76,
+          "end": 8.84
         }
       ]
     },
     {
       "scene_id": 7,
-      "start": 6.5,
-      "end": 8.15,
-      "duration_frames": 49,
+      "start": 8.84,
+      "end": 10.31,
+      "duration_frames": 44,
       "text_blocks": [
         {
-          "text": "고광택 블랙 디자인에",
-          "start": 6.5,
-          "end": 8.15
+          "text": "신일 초음파 가습기로",
+          "start": 8.84,
+          "end": 10.31
         }
       ]
     },
     {
       "scene_id": 8,
-      "start": 8.15,
-      "end": 10.17,
-      "duration_frames": 60,
+      "start": 10.31,
+      "end": 12.1,
+      "duration_frames": 53,
       "text_blocks": [
         {
-          "text": "블루 LED 잔량 표시까지",
-          "start": 8.15,
-          "end": 10.17
+          "text": "안방을 포근한 수분존으로",
+          "start": 10.31,
+          "end": 12.1
         }
       ]
     },
     {
       "scene_id": 9,
-      "start": 10.17,
-      "end": 10.9,
-      "duration_frames": 21,
+      "start": 12.1,
+      "end": 13.08,
+      "duration_frames": 29,
       "text_blocks": [
         {
-          "text": "완벽하죠",
-          "start": 10.17,
-          "end": 10.9
+          "text": "바꿔보세요.",
+          "start": 12.1,
+          "end": 13.08
         }
       ]
     },
     {
       "scene_id": 10,
-      "start": 10.9,
-      "end": 12.2,
-      "duration_frames": 38,
+      "start": 13.08,
+      "end": 14.42,
+      "duration_frames": 40,
       "text_blocks": [
         {
-          "text": "귀에 쏙 들어가는",
-          "start": 10.9,
-          "end": 12.2
+          "text": "다이얼만 쓱 돌리면",
+          "start": 13.08,
+          "end": 14.42
         }
       ]
     },
     {
       "scene_id": 11,
-      "start": 12.2,
-      "end": 13.32,
-      "duration_frames": 33,
+      "start": 14.42,
+      "end": 15.92,
+      "duration_frames": 45,
       "text_blocks": [
         {
-          "text": "초밀착 핏으로",
-          "start": 12.2,
-          "end": 13.32
+          "text": "풍부한 초미세 분무가",
+          "start": 14.42,
+          "end": 15.92
         }
       ]
     },
     {
       "scene_id": 12,
-      "start": 13.32,
-      "end": 15.0,
-      "duration_frames": 50,
+      "start": 15.92,
+      "end": 17.76,
+      "duration_frames": 55,
       "text_blocks": [
         {
-          "text": "하루 종일 편안합니다",
-          "start": 13.32,
-          "end": 15.0
+          "text": "방 안을 즉각 채워줍니다.",
+          "start": 15.92,
+          "end": 17.76
         }
       ]
     },
     {
       "scene_id": 13,
-      "start": 15.0,
-      "end": 16.59,
-      "duration_frames": 47,
+      "start": 17.76,
+      "end": 19.23,
+      "duration_frames": 44,
       "text_blocks": [
         {
-          "text": "더 이상 배터리 걱정 없이",
-          "start": 15.0,
-          "end": 16.59
+          "text": "2.4리터 대용량에",
+          "start": 17.76,
+          "end": 19.23
         }
       ]
     },
     {
       "scene_id": 14,
-      "start": 16.59,
-      "end": 17.7,
-      "duration_frames": 33,
+      "start": 19.23,
+      "end": 20.37,
+      "duration_frames": 34,
       "text_blocks": [
         {
-          "text": "음악을 즐기세요",
-          "start": 16.59,
-          "end": 17.7
+          "text": "통세척까지 쉬워",
+          "start": 19.23,
+          "end": 20.37
         }
       ]
     },
     {
       "scene_id": 15,
-      "start": 17.7,
-      "end": 18.87,
-      "duration_frames": 35,
+      "start": 20.37,
+      "end": 22.16,
+      "duration_frames": 53,
       "text_blocks": [
         {
-          "text": "지금 프로필 링크에서",
-          "start": 17.7,
-          "end": 18.87
+          "text": "밤새 소음 없이 편안하게!",
+          "start": 20.37,
+          "end": 22.16
         }
       ]
     },
     {
       "scene_id": 16,
-      "start": 18.87,
-      "end": 20.3,
-      "duration_frames": 42,
+      "start": 22.16,
+      "end": 25.6,
+      "duration_frames": 103,
       "text_blocks": [
         {
-          "text": "특별 혜택가로 만나보세요",
-          "start": 18.87,
-          "end": 20.3
+          "text": "프로필 링크를 참조하세요",
+          "start": 22.16,
+          "end": 25.6
         }
       ]
     }

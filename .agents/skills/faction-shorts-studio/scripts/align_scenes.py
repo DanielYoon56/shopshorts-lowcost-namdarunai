@@ -6,6 +6,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "stt-scene-align", "scripts"))
+from srt_writer import write_srt
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 FPS = 30
@@ -183,6 +185,9 @@ def main():
     with open(out_path, 'w', encoding='utf-8') as f:
         json.dump(scenes, f, ensure_ascii=False, indent=2)
     print(f"[+] 성공: {out_path}")
+    # CapCut/편집용 자막도 항상 같은 타이밍으로 갱신
+    srt_path = write_srt(folder, scenes)
+    print(f"[+] 자막 SRT 갱신: {srt_path}")
 
 def create_scene(scene_id, blocks):
     start, end = blocks[0]["start"], blocks[-1]["end"]

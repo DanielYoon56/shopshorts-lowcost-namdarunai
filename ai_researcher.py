@@ -189,7 +189,7 @@ def call_llm(prompt, system_prompt, prefer_model="auto", image_path=None):
     else:
         raise ValueError(f"지원하지 않는 모델: {use_model}")
 
-def run_product_research(product_text, url="", pipeline_type="product_15s", category="자동 감지", model_choice="auto", image_path=None, custom_script=None, coupang_data=None):
+def run_product_research(product_text, url="", pipeline_type="product_15s", category="자동 감지", model_choice="auto", image_path=None, custom_script=None, coupang_data=None, script_style="empathy"):
     """
     제품 텍스트, URL, 실물 이미지, 커스텀 대본을 분석하여:
     1. PRODUCT_TRUTH / STORY_TRUTH
@@ -201,6 +201,34 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
     """
     # 쿠팡은 비브라우저 요청을 403으로 차단하므로 범용 메타 수집을 건너뛰고 저장 페이지 파싱 결과를 쓴다
     url_info = {} if is_coupang_url(url) else fetch_url_metadata(url)
+
+    style_prompts = {
+        "empathy": (
+            "[대본 스타일: 문제공감 & 일상 해결형]\n"
+            "- 시청자가 일상에서 겪는 사소하지만 뼈아픈 고통과 불편함(페인포인트)을 첫 문장에서 질문이나 공감으로 짚어주세요 ('~하느라 힘드셨죠?', '~때문에 스트레스 받으셨다면').\n"
+            "- 제품이 이를 어떻게 말끔히 해결해 주는지 안도감과 편안함을 주는 친절하고 설득력 있는 어조로 전개하세요."
+        ),
+        "story": (
+            "[대본 스타일: 비하인드 썰 & 스토리텔링형]\n"
+            "- 대놓고 광고하는 느낌을 철저히 배제하고, '이거 만든 사장님이 미쳤다는 소리 들었던 이유', '외국에서 없어서 못 팔던 충격 비화'처럼 도파민 터지는 흥미진진한 썰 형식(~했대, ~더라고, 알고 보니)으로 끝까지 몰입시키는 톤으로 작성하세요."
+        ),
+        "review": (
+            "[대본 스타일: 내돈내산 찐 솔직 리뷰형]\n"
+            "- 광고나 협찬이 아니라 3달 동안 직접 내돈내산해서 써본 소비자의 솔직 담백한 리얼 보이스('솔직히 처음엔 반신반의했는데', '직접 써보고 딱 느낀 장점이 뭐냐면')로 전개하세요.\n"
+            "- 과장 없이 찐 사용자의 일상 체감 효능을 부각하여 신뢰도를 극대화하세요."
+        ),
+        "fast_usp": (
+            "[대본 스타일: 초고속 결과선공개 & USP 직진형]\n"
+            "- 군더더기 서론 없이 첫 1.5초 만에 극적인 사용 결과나 비포/애프터를 시각적으로 터뜨리며 시작하세요 ('딱 3초 만에 끝납니다', '결과부터 보여드립니다').\n"
+            "- 1초마다 눈을 뗄 수 없게 핵심 장점(USP)과 시연을 속도감 있게 전달하는 직설적이고 임팩트 있는 톤으로 작성하세요."
+        ),
+        "warning": (
+            "[대본 스타일: 충격 경고 & 반전 팩폭형]\n"
+            "- '아직도 이거 모르고 그냥 쓰시는 분들은 당장 멈추세요!', '다들 왜 이 치명적인 실수를 반복할까요?'처럼 시청자의 시선을 단숨에 사로잡는 강렬한 경고성 후킹으로 시작하세요.\n"
+            "- 상식을 깨는 충격적인 사실을 짚고, 이를 완벽하게 해결해 주는 반전 솔루션으로 전개하세요."
+        )
+    }
+    chosen_style_guide = style_prompts.get(script_style, style_prompts["empathy"])
 
     context_text = f"사용자 입력 정보: {product_text}\n"
     if url:
@@ -216,6 +244,9 @@ def run_product_research(product_text, url="", pipeline_type="product_15s", cate
         context_text += f"웹페이지 요약: {url_info['description']}\n"
     if category != "자동 감지":
         context_text += f"지정 카테고리: {category}\n"
+    
+    context_text += f"\n{chosen_style_guide}\n(위 대본 스타일 가이드의 톤앤매너와 어조를 대본 문장에 100% 반영하세요.)\n"
+
     if image_path and os.path.exists(image_path):
         context_text += f"\n[중요] 첨부된 실물 제품 사진을 시각적으로 정밀 분석하여 제품의 정확한 색상, 재질, 형태, 버튼/LED 유무, 패키지 특징을 PRODUCT_TRUTH 및 6컷 비주얼 프롬프트에 100% 일치하도록 반영하세요.\n"
     if custom_script and custom_script.strip():

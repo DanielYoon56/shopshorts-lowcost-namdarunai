@@ -135,6 +135,15 @@ def crop_asset_sheet(folder_path, is_faction=False):
 
     print(f"[✓] 에셋 시트 분할 및 9:16 보정 완료! 총 {total_saved}개 에셋이 {assets_dir}에 저장되었습니다.")
 
+    # 분할 완료 후 원본 1x3 시트 파일(asset_sheet_1.jpg, asset_sheet_2.jpg 등) 삭제
+    for sheet_path in sheet_files:
+        try:
+            if os.path.exists(sheet_path):
+                os.remove(sheet_path)
+                print(f"  [-] 임시 에셋 시트 삭제 완료: {os.path.basename(sheet_path)}")
+        except Exception as e:
+            print(f"  [!] 시트 삭제 실패: {e}")
+
     # 순차적 네이밍 에셋(01_Cut1 ~ 06_Cut6)을 assets/ 및 images/ 하부 폴더에 동시 동기화
     import shutil
     images_dir = os.path.join(folder_path, "images")

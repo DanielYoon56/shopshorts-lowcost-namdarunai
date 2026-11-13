@@ -324,8 +324,41 @@ with st.sidebar:
                 st.rerun()
 
     st.markdown("---")
-    st.markdown("### 🌐 전역 엔진 설정 (Global)")
+    st.markdown("### 🌐 전역 엔진 & 스타일 설정 (Global)")
     st.caption("원클릭 올인원 풀 파이프라인 및 모든 탭에 일괄 적용됩니다.")
+
+    st.markdown("#### ✍️ 쇼츠 대본 스타일 선택")
+    sidebar_script_style_choice = st.selectbox(
+        "사용할 대본 스토리텔링 스타일",
+        options=[
+            "💡 문제공감 & 해결형 (일상 불편 공감 + 해결책 제시, 기본 추천)",
+            "📖 비하인드 썰 & 스토리텔링형 (도파민 후킹 + 개발 비화 / 품절 대란)",
+            "🔍 내돈내산 솔직 리뷰형 (3개월 찐사용자 시점 + 솔직 체감)",
+            "⚡ 초고속 결과선공개형 (3초 즉시 증명 + 빠른 템포 USP)",
+            "🚨 충격 경고 & 반전형 (호기심 유발 후킹 + 팩트폭격 솔루션)"
+        ],
+        index=0,
+        key="sidebar_script_style_select",
+        help="• 문제공감: 일상 속 불편함에 깊이 공감하고 제품 해결책 제시\n• 비하인드 썰: 창업자 비화, 품절 대란 등 도파민 넘치는 썰로 몰입\n• 내돈내산 리뷰: 찐 소비자의 솔직 담백한 리얼 리뷰\n• 초고속 결과선공개: 3초 만에 결과를 선공개하고 핵심 기능 속도감 있게 전달\n• 충격 경고: 강렬한 경고성 후킹 후 상식을 깨는 반전 솔루션"
+    )
+    if "문제공감" in sidebar_script_style_choice:
+        selected_script_style = "empathy"
+        st.caption("✨ 일상 불편함 공감 ➔ 즉각적인 제품 기능 및 해결책 제시")
+    elif "비하인드" in sidebar_script_style_choice:
+        selected_script_style = "story"
+        st.caption("✨ 흥미진진한 비하인드 썰과 도파민 스토리텔링으로 몰입")
+    elif "내돈내산" in sidebar_script_style_choice:
+        selected_script_style = "review"
+        st.caption("✨ 3개월 직접 써본 소비자의 솔직 담백한 리얼 리뷰")
+    elif "결과선공개" in sidebar_script_style_choice:
+        selected_script_style = "fast_usp"
+        st.caption("✨ 3초 즉시 결과 선공개 + 빠른 템포의 핵심 장점(USP) 증명")
+    else:
+        selected_script_style = "warning"
+        st.caption("✨ '아직도 모르셨다면 당장 멈추세요' 강렬한 경고 ➔ 반전 솔루션")
+    st.session_state["global_script_style"] = selected_script_style
+
+    st.markdown("---")
     st.markdown("#### 🎨 AI 이미지 생성 엔진")
     g_key = os.getenv("GEMINI_API_KEY")
     hf_token = os.getenv("HF_TOKEN")
@@ -684,7 +717,15 @@ with tab_research:
     st.markdown("#### 🚀 파이프라인 가동 선택")
     active_tts_desc = "무료 Edge-TTS" if selected_tts_engine == "edge" else ("Google Gemini-TTS" if selected_tts_engine == "gemini" else "Qwen3-TTS")
     active_img_desc = "Google Gemini (실물 레퍼런스)" if selected_img_engine == "gemini" else ("Hugging Face FLUX" if selected_img_engine == "hf" else "SiliconFlow FLUX")
-    st.info(f"🌐 **현재 전역 엔진 설정 (좌측 사이드바에서 변경 가능)**: 🔊 음성 = **{active_tts_desc}** | 🎨 이미지 = **{active_img_desc}**")
+    style_labels = {
+        "empathy": "문제공감 & 해결형",
+        "story": "비하인드 썰 & 스토리텔링형",
+        "review": "내돈내산 솔직 리뷰형",
+        "fast_usp": "초고속 결과선공개형",
+        "warning": "충격 경고 & 반전형"
+    }
+    active_style_desc = style_labels.get(st.session_state.get("global_script_style", selected_script_style), "문제공감 & 해결형")
+    st.info(f"🌐 **현재 전역 엔진 & 스타일 설정 (좌측 사이드바에서 변경 가능)**: ✍️ 대본 스타일 = **{active_style_desc}** | 🔊 음성 = **{active_tts_desc}** | 🎨 이미지 = **{active_img_desc}**")
     
     col_btn1, col_btn2 = st.columns([1, 1.3])
     
@@ -695,7 +736,7 @@ with tab_research:
             elif "직접 입력" in input_mode and not custom_script_content.strip():
                 st.error("대본 내용을 입력해 주세요!")
             else:
-                with st.spinner("AI가 상품 정보 수집 및 실물 사진 분석, 숏폼 서사 설계를 진행 중입니다..."):
+                with st.spinner(f"AI가 [{active_style_desc}] 스타일로 상품 조사 및 실물 사진 분석, 숏폼 서사 설계를 진행 중입니다..."):
                     try:
                         res = run_product_research(
                             product_text=product_text_desc,
@@ -705,10 +746,11 @@ with tab_research:
                             model_choice=model_choice.split(" ")[0] if "직접 입력" not in input_mode else "auto",
                             image_path=ref_image_path if os.path.exists(ref_image_path) else None,
                             custom_script=custom_script_content if "직접 입력" in input_mode else None,
-                            coupang_data=coupang_data
+                            coupang_data=coupang_data,
+                            script_style=st.session_state.get("global_script_style", selected_script_style)
                         )
                         save_research_artifacts(current_project_path, res)
-                        st.success("🎉 AI 제품 기획 및 대본 저장이 완료되었습니다! (2번 탭에서 확인)")
+                        st.success(f"🎉 [{active_style_desc}] 스타일로 AI 제품 기획 및 대본 저장이 완료되었습니다! (2번 탭에서 확인)")
                     except Exception as e:
                         st.error(f"기획 생성 중 오류 발생: {e}")
 
@@ -725,7 +767,7 @@ with tab_research:
                 
                 try:
                     # 1. 기획 생성
-                    full_status.markdown("🔄 **[1단계]** AI 제품 조사 & 실물 사진 비전 분석 & 대본/프롬프트 생성 중...")
+                    full_status.markdown(f"🔄 **[1단계]** [{active_style_desc}] 스타일로 AI 제품 조사 & 비전 분석 & 대본/프롬프트 생성 중...")
                     full_prog.progress(0.15)
                     res = run_product_research(
                         product_text=product_text_desc,
@@ -735,7 +777,8 @@ with tab_research:
                         model_choice=model_choice.split(" ")[0] if "직접 입력" not in input_mode else "auto",
                         image_path=ref_image_path if os.path.exists(ref_image_path) else None,
                         custom_script=custom_script_content if "직접 입력" in input_mode else None,
-                        coupang_data=coupang_data
+                        coupang_data=coupang_data,
+                        script_style=st.session_state.get("global_script_style", selected_script_style)
                     )
                     save_research_artifacts(current_project_path, res)
                     
