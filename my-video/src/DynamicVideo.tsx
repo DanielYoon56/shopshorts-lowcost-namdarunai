@@ -24,6 +24,15 @@ export const dynamicVideoSchema = z.object({
   videoFileName: z.string().optional(),
   audioFileName: z.string().optional(),
   disableAudio: z.boolean().optional(),
+  cutVideos: z
+    .array(
+      z.object({
+        cutIndex: z.number(),
+        hasVideo: z.boolean(),
+        fileName: z.string().optional().nullable(),
+      })
+    )
+    .optional(),
   sceneData: z.array(
     z.object({
       scene_id: z.number(),
@@ -161,7 +170,9 @@ export const DynamicVideo: React.FC<DynamicVideoProps> = ({
   videoFileName,
   audioFileName,
   disableAudio,
+  cutVideos,
   sceneData,
+  durationInFrames,
 }) => {
   const actualAudioFile = audioFileName || "output_1.2x.wav";
   const audioSrc = staticFile(`outputs/${folderName}/${actualAudioFile}`);
@@ -169,10 +180,71 @@ export const DynamicVideo: React.FC<DynamicVideoProps> = ({
     ? staticFile(`outputs/${folderName}/${videoFileName}`)
     : null;
 
+  const hasCutSequence = cutVideos && cutVideos.some((c) => c.hasVideo);
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000000" }}>
       {/* 1. Background Video Layer */}
-      {singleVideoSrc ? (
+      {hasCutSequence ? (
+        // 6컷 AI 비디오 시퀀스 모드 (Flow, Kling, Luma 등에서 생성한 6개 클립 자동 연속 재생)
+        cutVideos.map((cut, idx) => {
+          const totalCuts = cutVideos.length;
+          const startFrame = Math.round((idx * durationInFrames) / totalCuts);
+          const endFrame = Math.round(((idx + 1) * durationInFrames) / totalCuts);
+          const cutDuration = Math.max(1, endFrame - startFrame);
+          const videoSrc = cut.fileName
+            ? staticFile(`outputs/${folderName}/${cut.fileName}`)
+            : staticFile(`outputs/${folderName}/cut${cut.cutIndex}.mp4`);
+          const imageSrc = staticFile(
+            `outputs/${folderName}/assets/cut${cut.cutIndex}_9_16.jpg`
+          );
+
+          return (
+            <Sequence
+              key={`cut_${cut.cutIndex}`}
+              from={startFrame}
+              durationInFrames={cutDuration}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  position: "relative",
+                  background: "#000000",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                {cut.hasVideo ? (
+                  <Video
+                    src={videoSrc}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                    muted
+                    loop
+                  />
+                ) : (
+                  <Img
+                    src={imageSrc}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                )}
+              </div>
+            </Sequence>
+          );
+        })
+      ) : singleVideoSrc ? (
         // 단일 비디오 모드 (예: video.mov / video.mp4)
         <Video
           src={singleVideoSrc}

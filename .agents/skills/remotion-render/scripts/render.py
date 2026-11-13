@@ -141,25 +141,72 @@ def main():
     folder_name = os.path.basename(folder_path)
     disable_audio = (folder_name == "260823_shorts" or "--no-audio" in sys.argv)
     
-    # 단일 배경 비디오 파일 검색 (video.mov, video.mp4 등)
+    # 6개 컷 비디오 검색 (cut1.mp4 ~ cut6.mp4 / 01_Cut1.mp4 등)
+    cut_videos_info = []
+    for i in range(1, 7):
+        possible_patterns = [
+            f"cut{i}.mp4", f"cut_{i}.mp4", f"Cut{i}.mp4", f"0{i}_Cut{i}.mp4",
+            f"cut{i}.mov", f"0{i}_Cut{i}.mov"
+        ]
+        found_name = None
+        for name in possible_patterns:
+            p = os.path.join(folder_path, name)
+            if os.path.exists(p):
+                found_name = name
+                # H264 GOP=1 CFR 30fps 트랜스코딩 최적화
+                if not is_all_keyframes(p):
+                    temp_p = os.path.join(folder_path, f"temp_{name}")
+                    try:
+                        cmd = [
+                            "ffmpeg", "-i", p, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                            "-profile:v", "high", "-level:v", "4.0", "-g", "1",
+                            "-movflags", "+faststart", "-r", str(FPS), "-vsync", "cfr",
+                            "-an", temp_p, "-y"
+                        ]
+                        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                        os.replace(temp_p, p)
+                        print(f"[+] {name} 최적화 완료 (H264 CFR 30fps + GOP=1)")
+                    except Exception as e:
+                        if os.path.exists(temp_p):
+                            os.remove(temp_p)
+                break
+        cut_videos_info.append({
+            "cutIndex": i,
+            "hasVideo": bool(found_name),
+            "fileName": found_name
+        })
+
+    has_cut_sequence = any(c["hasVideo"] for c in cut_videos_info)
+    if has_cut_sequence:
+        print(f"[*] 6컷 AI 비디오 시퀀스 모드 감지됨 ({sum(1 for c in cut_videos_info if c['hasVideo'])}/6개 컷 클립 적용)")
+
+    # 단일 배경 비디오 파일 검색 (6컷 시퀀스가 없는 경우에만 단일 비디오 탐색)
     video_extensions = ["mp4", "mov", "mkv", "webm", "avi"]
     single_video_file = None
     single_video_path = None
     
-    for ext in video_extensions:
-        p = os.path.join(folder_path, f"video.{ext}")
-        if os.path.exists(p):
-            single_video_file = f"video.{ext}"
-            single_video_path = p
-            break
-            
-    if not single_video_path:
-        cand_videos = glob.glob(os.path.join(folder_path, "*.mp4")) + glob.glob(os.path.join(folder_path, "*.mov"))
-        cand_videos = [v for v in cand_videos if os.path.basename(v) != "output.mp4" and not os.path.basename(v).startswith("scene") and not "temp" in v]
-        if cand_videos:
-            single_video_path = cand_videos[0]
-            single_video_file = os.path.basename(single_video_path)
-            print(f"[*] 단일 배경 비디오 감지됨: {single_video_file}")
+    if not has_cut_sequence:
+        for ext in video_extensions:
+            p = os.path.join(folder_path, f"video.{ext}")
+            if os.path.exists(p):
+                single_video_file = f"video.{ext}"
+                single_video_path = p
+                break
+                
+        if not single_video_path:
+            cand_videos = glob.glob(os.path.join(folder_path, "*.mp4")) + glob.glob(os.path.join(folder_path, "*.mov"))
+            cand_videos = [
+                v for v in cand_videos 
+                if os.path.basename(v) != "output.mp4" 
+                and not os.path.basename(v).startswith("scene") 
+                and not os.path.basename(v).lower().startswith("cut") 
+                and not re.match(r'0\d_Cut', os.path.basename(v))
+                and not "temp" in v
+            ]
+            if cand_videos:
+                single_video_path = cand_videos[0]
+                single_video_file = os.path.basename(single_video_path)
+                print(f"[*] 단일 배경 비디오 감지됨: {single_video_file}")
 
     if single_video_path:
         # 단일 비디오 최적화 진행
@@ -321,6 +368,9 @@ def main():
     
     if single_video_file:
         props_data["videoFileName"] = single_video_file
+
+    if has_cut_sequence:
+        props_data["cutVideos"] = cut_videos_info
 
     temp_props_path = os.path.join(folder_path, "temp_props.json")
     with open(temp_props_path, "w", encoding="utf-8") as f:

@@ -515,10 +515,21 @@ def sync_remotion_active_project(folder_path):
 
     # 2. 오디오 파일 확인
     audio_file = "output_1.2x.wav"
-    for cand in ["output_1.2x.wav", "output_1.5x.wav", "output.wav"]:
+    for cand in ["output_1.2x.wav", "output.wav", "output_1.5x.wav"]:
         if os.path.exists(os.path.join(folder_path, cand)):
             audio_file = cand
             break
+
+    # 2-1. 6개 컷 비디오 확인 (Cut 1 ~ Cut 6)
+    cut_videos_info = []
+    for i in range(1, 7):
+        p_cands = [f"cut{i}.mp4", f"0{i}_Cut{i}.mp4", f"cut_{i}.mp4", f"Cut{i}.mp4", f"cut{i}.mov", f"0{i}_Cut{i}.mov"]
+        found_name = next((c for c in p_cands if os.path.exists(os.path.join(folder_path, c))), None)
+        cut_videos_info.append({
+            "cutIndex": i,
+            "hasVideo": bool(found_name),
+            "fileName": found_name
+        })
 
     # 3. my-video/src/active_props.json 갱신
     active_props = {
@@ -527,6 +538,8 @@ def sync_remotion_active_project(folder_path):
         "durationInFrames": duration_in_frames,
         "sceneData": scenes
     }
+    if any(c["hasVideo"] for c in cut_videos_info):
+        active_props["cutVideos"] = cut_videos_info
     src_props_path = os.path.join(MY_VIDEO_DIR, "src", "active_props.json")
     try:
         with open(src_props_path, "w", encoding="utf-8") as f:
@@ -1522,16 +1535,34 @@ with tab_video:
     st.markdown("### 🎬 Remotion 9:16 비디오 렌더링 & 비디오 플레이어")
     st.markdown("자막 오버레이(`scene_data.json`)와 배경 비디오/에셋 이미지를 합성하여 **최종 9:16 쇼츠 MP4 비디오**를 렌더링합니다.")
 
+    # 6개 컷 비디오 감지 상태 확인
+    cut_video_files = []
+    for i in range(1, 7):
+        p_cands = [f"cut{i}.mp4", f"0{i}_Cut{i}.mp4", f"cut_{i}.mp4", f"Cut{i}.mp4", f"cut{i}.mov", f"0{i}_Cut{i}.mov"]
+        f_name = next((c for c in p_cands if os.path.exists(os.path.join(current_project_path, c))), None)
+        cut_video_files.append((i, f_name))
+    
+    found_cut_count = sum(1 for _, f in cut_video_files if f)
+
     # 1. Remotion 자동 렌더링 섹션 (상단 메인 배치)
     col_r1, col_r2 = st.columns([2, 1])
     with col_r1:
-        bg_videos = glob.glob(os.path.join(current_project_path, "video*.mp4")) + \
-                    glob.glob(os.path.join(current_project_path, "background*.mp4")) + \
-                    glob.glob(os.path.join(current_project_path, "scene*.mp4"))
-        if bg_videos:
-            st.success(f"🎬 배경 비디오 소스 감지됨 ({len(bg_videos)}개)")
+        if found_cut_count > 0:
+            st.success(f"🎬 **6컷 AI 비디오 시퀀스 모드 활성화됨 ({found_cut_count}/6개 컷 비디오 적용)**")
+            cut_pills = []
+            cut_labels = ["1:Hook", "2:Before", "3:Hero", "4:Action", "5:Proof", "6:CTA"]
+            for idx, f_name in cut_video_files:
+                badge = "✅" if f_name else "🖼️"
+                cut_pills.append(f"`Cut {cut_labels[idx-1]}`: {badge}")
+            st.caption(" | ".join(cut_pills) + " (비디오가 없는 컷은 AI 생성 이미지로 자동 보완)")
         else:
-            st.info("💡 동영상 클립이 없는 경우, 5번 탭에서 생성된 9:16 실사 이미지 에셋들을 기반으로 자동 조립 렌더링됩니다.")
+            bg_videos = glob.glob(os.path.join(current_project_path, "video*.mp4")) + \
+                        glob.glob(os.path.join(current_project_path, "background*.mp4")) + \
+                        glob.glob(os.path.join(current_project_path, "scene*.mp4"))
+            if bg_videos:
+                st.success(f"🎬 단일 배경 비디오 소스 감지됨 ({len(bg_videos)}개)")
+            else:
+                st.info("💡 동영상 클립이 없는 경우, 5번 탭에서 생성된 9:16 실사 이미지 에셋들을 기반으로 자동 조립 렌더링됩니다.")
 
     with col_r2:
         no_audio_opt = st.checkbox(
@@ -1546,7 +1577,7 @@ with tab_video:
             if not status["scenes"]:
                 st.error("먼저 4번 탭에서 `scene_data.json` 자막 데이터를 생성해 주세요!")
             else:
-                extra = ["--no-audio"] if no_audio_opt else None
+                extra = ["--no-audio"] if (no_audio_opt and found_cut_count == 0) else None
                 progress_bar = st.progress(0.0)
                 status_text = st.empty()
                 log_box = st.empty()
@@ -1572,6 +1603,34 @@ with tab_video:
                 st.rerun()
 
     st.markdown("---")
+
+    # 1-1. 6컷 AI 비디오 일괄 업로드 섹션
+    with st.expander("🎬 Flow / Kling 6컷 AI 비디오 일괄 등록 (Cut 1 ~ Cut 6) - 캡컷 없이 완성하기", expanded=(found_cut_count > 0)):
+        st.markdown("""
+        **Flow, Kling, Luma, Runway 등에서 생성한 6개 비디오 클립을 여기에 한 번에 업로드하세요.**  
+        • 리모션이 6개 클립을 15초 6비트 타임라인에 맞춰 **자동 순차 연결**하고, TTS 음성과 Whisper 자막을 합성하여 **캡컷 작업 없이 100% 자동 완성**합니다.  
+        • 파일명에 `cut1`, `1`, `01` 등이 포함되어 있으면 해당 컷 번호로 자동 매핑됩니다. (비디오가 없는 컷은 AI 생성 이미지로 자동 대체)
+        """)
+        uploaded_cut_videos = st.file_uploader(
+            "AI 생성 컷 비디오 파일 선택 (여러 개 동시 선택 가능)",
+            type=["mp4", "mov"],
+            accept_multiple_files=True,
+            key=f"ai_cut_videos_uploader_{selected_folder}"
+        )
+        if uploaded_cut_videos:
+            saved_cnt = 0
+            for idx, f in enumerate(uploaded_cut_videos):
+                m = re.search(r'([1-6])', f.name)
+                cut_num = int(m.group(1)) if m else (idx + 1)
+                if 1 <= cut_num <= 6:
+                    target_path = os.path.join(current_project_path, f"cut{cut_num}.mp4")
+                    with open(target_path, "wb") as out_f:
+                        out_f.write(f.getbuffer())
+                    saved_cnt += 1
+            if saved_cnt > 0:
+                st.success(f"🎉 {saved_cnt}개의 AI 컷 비디오가 성공적으로 등록되었습니다! 위의 렌더링 버튼을 누르면 캡컷 없이 자동 완성됩니다.")
+                time.sleep(1)
+                st.rerun()
 
     # 2. CapCut 등 외부 편집기 완성본 업로드 섹션
     with st.expander("📤 또는 캡컷(CapCut) 등 외부 편집기에서 렌더링해온 완성 MP4 파일 등록하기"):
