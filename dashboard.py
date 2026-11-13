@@ -737,9 +737,7 @@ st.markdown("""
 <div class="aistudio-topbar">
     <div class="aistudio-brand">
         <span class="aistudio-sparkle">✦</span>
-        <span class="aistudio-brand-title">Google AI Studio</span>
-        <span class="aistudio-slash">/</span>
-        <span class="aistudio-brand-sub">ShopShorts Studio</span>
+        <span class="aistudio-brand-title">Loco ShopShorts Maker</span>
     </div>
     <div class="aistudio-chip">✦ Gemini 2.0 • Multimodal Studio</div>
 </div>
