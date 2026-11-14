@@ -44,6 +44,10 @@ import image_generator
 importlib.reload(image_generator)
 from image_generator import batch_generate_images, sync_sequential_images
 
+import social_uploader
+importlib.reload(social_uploader)
+from social_uploader import parse_publish_kit, youtube_uploader, instagram_uploader
+
 # 페이지 기본 설정
 st.set_page_config(
     page_title="Lowcost ShopShorts namdarunAi",
@@ -797,16 +801,17 @@ with col_h5:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ------------------------------------------------------------------
-# 7대 탭 구성
+# 8대 탭 구성
 # ------------------------------------------------------------------
-tab_research, tab_script, tab_audio, tab_subtitles, tab_images, tab_video, tab_assets = st.tabs([
+tab_research, tab_script, tab_audio, tab_subtitles, tab_images, tab_video, tab_publish, tab_assets = st.tabs([
     "🔍 1. AI 제품 조사 & 기획",
     "✍️ 2. 대본 편집 & 플랜",
     "🔊 3. TTS 음성 생성",
     "🎯 4. Whisper 자막 싱크",
     "🎨 5. AI 이미지 일괄 생성 (핵심)",
     "🎬 6. Remotion 렌더링 & 프리뷰",
-    "📁 7. 에셋 갤러리"
+    "🚀 7. 유튜브 / 인스타 자동 업로드",
+    "📁 8. 에셋 갤러리"
 ])
 
 # ------------------------------------------------------------------
@@ -1682,11 +1687,223 @@ with tab_video:
                 with st.expander("📋 유튜브/인스타 배포용 제목 & 설명문 복사"):
                     with open(pub_path, "r", encoding="utf-8") as pf:
                         st.markdown(pf.read())
+            
+            st.info("💡 **영상이 완성되었습니다!** **7번 탭(🚀 7. 유튜브 / 인스타 자동 업로드)**으로 이동하시면 원클릭으로 유튜브 쇼츠와 인스타그램 릴스에 바로 게시할 수 있습니다.")
     else:
         st.info("아직 생성된 최종 영상(`output.mp4`)이 없습니다. 위에서 Remotion 렌더링을 실행하거나 캡컷 영상을 등록하세요.")
 
 # ------------------------------------------------------------------
-# TAB 7: 에셋 및 미디어 업로더
+# TAB 7: 유튜브 / 인스타 자동 업로드 (Social Uploader)
+# ------------------------------------------------------------------
+with tab_publish:
+    st.markdown("### 🚀 유튜브 쇼츠 & 인스타그램 릴스 자동 업로드")
+    st.caption("완성된 9:16 쇼츠 비디오(`output.mp4`)와 AI 배포 키트(`publish_kit.md`)를 기반으로 유튜브 쇼츠 및 인스타그램 릴스에 원클릭으로 직접 게시합니다.")
+
+    output_video_path = os.path.join(current_project_path, "output.mp4")
+    if not os.path.exists(output_video_path):
+        st.warning("⚠️ 아직 최종 완성된 비디오(`output.mp4`)가 없습니다. 6번 탭에서 Remotion 렌더링을 먼저 진행하거나 캡컷 완성본을 등록해 주세요.")
+    else:
+        # 1. 메타데이터 파싱 (publish_kit.md)
+        pub_data = parse_publish_kit(current_project_path)
+
+        col_v_prev, col_v_form = st.columns([1, 1.4])
+        with col_v_prev:
+            st.markdown("#### 📺 업로드 대상 비디오")
+            with open(output_video_path, "rb") as vf:
+                st.video(vf.read())
+            file_mb = round(os.path.getsize(output_video_path) / (1024 * 1024), 2)
+            st.caption(f"파일명: `output.mp4` ({file_mb} MB) | 해상도: 1080x1920 (9:16)")
+
+        with col_v_form:
+            st.markdown("#### 📝 게시 정보 편집 (publish_kit 기반 자동 완성)")
+            
+            # 제목 선택/입력
+            title_options = pub_data.get("titles", [])
+            default_title = pub_data.get("title", "")
+            if title_options:
+                chosen_title = st.selectbox(
+                    "📌 추천 제목 선택",
+                    title_options,
+                    index=0,
+                    key=f"pub_title_select_{selected_folder}"
+                )
+                final_title = st.text_input(
+                    "최종 제목 (수정 가능, 최대 100자)",
+                    value=chosen_title,
+                    key=f"pub_final_title_{selected_folder}"
+                )
+            else:
+                final_title = st.text_input(
+                    "최종 제목 (최대 100자)",
+                    value=default_title,
+                    key=f"pub_final_title_{selected_folder}"
+                )
+
+            final_desc = st.text_area(
+                "📄 본문 설명문 (Description)",
+                value=pub_data.get("description", ""),
+                height=110,
+                key=f"pub_final_desc_{selected_folder}"
+            )
+
+            final_tags = st.text_area(
+                "🏷️ 해시태그 (Hashtags)",
+                value=pub_data.get("hashtags", ""),
+                height=65,
+                key=f"pub_final_tags_{selected_folder}"
+            )
+
+            # 인스타 캡션 (설명문 + 해시태그)
+            final_instagram_caption = f"{final_desc}\n\n{final_tags}".strip()
+
+        st.markdown("---")
+
+        # 2. 플랫폼별 업로드 섹션 (2열 분할)
+        col_yt, col_ig = st.columns(2)
+
+        # ----------------- A. 유튜브 쇼츠 -----------------
+        with col_yt:
+            st.markdown("#### 📺 YouTube Shorts 업로드")
+            
+            yt_auth_ok = youtube_uploader.is_authenticated()
+            yt_conf_ok = youtube_uploader.is_configured()
+
+            if yt_auth_ok:
+                st.markdown('<div class="status-pill pill-green"><span class="status-dot dot-green"></span> YouTube OAuth 인증 완료 (연결됨)</div>', unsafe_allow_html=True)
+            elif yt_conf_ok:
+                st.markdown('<div class="status-pill pill-gray"><span class="status-dot dot-idle"></span> client_secret.json 준비됨 (최초 1회 로그인 필요)</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="status-pill pill-red"><span class="status-dot dot-red"></span> client_secret.json 등록 필요</div>', unsafe_allow_html=True)
+
+            col_yt_opt1, col_yt_opt2 = st.columns([1, 1])
+            with col_yt_opt1:
+                yt_privacy = st.selectbox(
+                    "공개 상태",
+                    ["public (전체 공개)", "unlisted (일부 공개 - 추천)", "private (비공개)"],
+                    index=1,
+                    key=f"yt_privacy_select_{selected_folder}",
+                    help="unlisted(일부 공개)로 먼저 올린 뒤 유튜브 스튜디오에서 확인하고 공개로 전환하는 것을 추천합니다."
+                )
+                privacy_code = yt_privacy.split(" ")[0]
+
+            with col_yt_opt2:
+                auto_shorts_tag = st.checkbox("제목에 #Shorts 자동 태그", value=True)
+
+            yt_upload_btn = st.button("▶️ YouTube Shorts 즉시 업로드", type="primary", use_container_width=True, key=f"yt_upload_btn_{selected_folder}")
+            if yt_upload_btn:
+                if not yt_conf_ok and not yt_auth_ok:
+                    st.error("YouTube OAuth 클라이언트 보안 비밀 파일(`credentials/youtube_client_secret.json`)이 필요합니다! 아래 설정 가이드를 확인하세요.")
+                else:
+                    yt_prog = st.progress(0.0)
+                    yt_status = st.empty()
+                    yt_status.markdown("🔄 YouTube Data API 연결 및 쇼츠 업로드 진행 중...")
+                    try:
+                        def on_yt_progress(p):
+                            yt_prog.progress(min(0.95, float(p)))
+                            yt_status.markdown(f"🔄 업로드 전송 중: {int(p * 100)}%...")
+
+                        upload_t = final_title
+                        if auto_shorts_tag and "#Shorts" not in upload_t and "#shorts" not in upload_t:
+                            upload_t = f"{upload_t} #Shorts"
+
+                        yt_full_desc = f"{final_desc}\n\n{final_tags}"
+                        tag_list = [t.strip("#").strip() for t in final_tags.split() if t.strip()]
+
+                        res = youtube_uploader.upload_shorts(
+                            video_path=output_video_path,
+                            title=upload_t,
+                            description=yt_full_desc,
+                            tags=tag_list,
+                            privacy_status=privacy_code,
+                            progress_callback=on_yt_progress
+                        )
+                        yt_prog.progress(1.0)
+                        yt_status.empty()
+                        st.success(f"🎉 YouTube Shorts 업로드 성공! [{res['title']}]")
+                        st.markdown(f"👉 **쇼츠 영상 링크**: [{res['url']}]({res['url']})")
+                        st.balloons()
+                    except Exception as e:
+                        yt_prog.empty()
+                        yt_status.empty()
+                        st.error(f"YouTube 업로드 실패: {e}")
+
+            with st.expander("⚙️ YouTube API 연동 방법 (최초 1회 설정)"):
+                st.markdown("""
+                1. [Google Cloud Console](https://console.cloud.google.com/) 접속
+                2. 프로젝트 생성 ➔ **YouTube Data API v3** 검색 후 [사용] 클릭
+                3. **사용자 인증 정보** ➔ OAuth 클라이언트 ID 만들기 (유형: **데스크톱 앱**)
+                4. 생성된 JSON을 다운로드하여 파일명을 `youtube_client_secret.json`으로 변경 후 `c:\\11_ShopShorts_LowCost_namdarun\\credentials\\` 폴더에 넣기
+                5. 위 업로드 버튼을 누르면 브라우저 로그인 창이 뜨며 최초 1회 인증 완료!
+                """)
+
+        # ----------------- B. 인스타그램 릴스 -----------------
+        with col_ig:
+            st.markdown("#### 📸 Instagram Reels 업로드")
+            
+            ig_auth_ok = instagram_uploader.is_authenticated()
+            if ig_auth_ok:
+                st.markdown('<div class="status-pill pill-green"><span class="status-dot dot-green"></span> Instagram 로그인 세션 유지됨</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="status-pill pill-gray"><span class="status-dot dot-idle"></span> Instagram 계정 로그인 필요</div>', unsafe_allow_html=True)
+
+            col_ig_u1, col_ig_u2 = st.columns(2)
+            with col_ig_u1:
+                env_ig_u = os.getenv("INSTAGRAM_USERNAME", "")
+                ig_user = st.text_input("아이디 (Username)", value=env_ig_u, key=f"ig_user_input_{selected_folder}", placeholder="예: your_insta_id")
+            with col_ig_u2:
+                env_ig_p = os.getenv("INSTAGRAM_PASSWORD", "")
+                ig_pwd = st.text_input("비밀번호 (Password)", value=env_ig_p, type="password", key=f"ig_pwd_input_{selected_folder}")
+
+            ig_2fa = st.text_input("2단계 인증 코드 (2FA 사용 시에만 입력)", key=f"ig_2fa_input_{selected_folder}", placeholder="6자리 SMS/OTP 코드 (선택)")
+
+            # 커버 이미지 선택 (assets/cut1_9_16.jpg)
+            default_cover = os.path.join(current_project_path, "assets", "cut1_9_16.jpg")
+            has_cover = os.path.exists(default_cover)
+            ig_cover_opt = st.checkbox("첫 컷(Cut 1)을 릴스 썸네일 커버로 지정", value=has_cover)
+
+            ig_upload_btn = st.button("▶️ Instagram Reels 즉시 업로드", type="primary", use_container_width=True, key=f"ig_upload_btn_{selected_folder}")
+            if ig_upload_btn:
+                if not ig_auth_ok and (not ig_user.strip() or not ig_pwd.strip()):
+                    st.error("인스타그램 아이디와 비밀번호를 입력해 주세요!")
+                else:
+                    ig_prog = st.progress(0.0)
+                    ig_status = st.empty()
+                    
+                    try:
+                        def on_ig_progress(p, msg=""):
+                            ig_prog.progress(min(1.0, float(p)))
+                            ig_status.markdown(f"🔄 {msg}")
+
+                        cover_to_use = default_cover if (ig_cover_opt and has_cover) else None
+
+                        res = instagram_uploader.upload_reels(
+                            video_path=output_video_path,
+                            caption=final_instagram_caption,
+                            thumbnail_path=cover_to_use,
+                            username=ig_user.strip() if ig_user else None,
+                            password=ig_pwd.strip() if ig_pwd else None,
+                            verification_code=ig_2fa.strip() if ig_2fa else None,
+                            progress_callback=on_ig_progress
+                        )
+                        ig_prog.progress(1.0)
+                        ig_status.empty()
+                        st.success("🎉 Instagram Reels 업로드 성공!")
+                        st.markdown(f"👉 **릴스 영상 링크**: [{res['url']}]({res['url']})")
+                        st.balloons()
+                    except Exception as e:
+                        ig_prog.empty()
+                        ig_status.empty()
+                        st.error(f"Instagram 업로드 실패: {e}")
+
+            with st.expander("⚙️ Instagram 세션 관리 안내"):
+                st.markdown("""
+                • 최초 1회 로그인 성공 시 세션 쿠키가 `credentials/instagram_session.json`에 안전하게 보관되어, 다음부터는 비번 입력 없이 자동 로그인됩니다.  
+                • 2단계 인증(2FA)이 켜져 있는 계정은 2FA 입력란에 발송된 6자리 번호를 함께 넣고 업로드하세요.  
+                • 계정 정보를 `.env` 파일에 `INSTAGRAM_USERNAME=...`, `INSTAGRAM_PASSWORD=...` 로 저장해두면 자동 입력됩니다.
+                """)
+
+# ------------------------------------------------------------------
+# TAB 8: 에셋 및 미디어 업로더
 # ------------------------------------------------------------------
 with tab_assets:
     st.markdown("### 📁 에셋 및 미디어 업로드 / 관리")
