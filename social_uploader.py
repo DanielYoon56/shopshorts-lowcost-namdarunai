@@ -115,8 +115,9 @@ class YouTubeUploader:
         return None
 
     def is_configured(self) -> bool:
-        """인증 파일 준비 여부 확인"""
-        return YOUTUBE_TOKEN_FILE.exists() or (self.client_secret_file is not None)
+        """인증 파일 또는 환경변수 설정 여부 확인"""
+        has_env_credentials = bool(os.getenv("YOUTUBE_CLIENT_ID") and os.getenv("YOUTUBE_CLIENT_SECRET"))
+        return YOUTUBE_TOKEN_FILE.exists() or (self.client_secret_file is not None) or has_env_credentials
 
     def is_authenticated(self) -> bool:
         """유효한 토큰 보유 여부 확인"""
@@ -155,13 +156,37 @@ class YouTubeUploader:
 
         # 새로 인증해야 하는 경우
         if not creds or not creds.valid:
-            if not self.client_secret_file or not os.path.exists(self.client_secret_file):
+            client_id = os.getenv("YOUTUBE_CLIENT_ID", "").strip()
+            client_secret = os.getenv("YOUTUBE_CLIENT_SECRET", "").strip()
+
+            if client_id and client_secret:
+                # .env 환경변수를 이용한 인메모리 OAuth2 Flow
+                client_config = {
+                    "installed": {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                        "redirect_uris": ["http://localhost"]
+                    }
+                }
+                flow = InstalledAppFlow.from_client_config(client_config, self.SCOPES)
+            elif self.client_secret_file and os.path.exists(self.client_secret_file):
+                flow = InstalledAppFlow.from_client_secrets_file(self.client_secret_file, self.SCOPES)
+            else:
                 raise FileNotFoundError(
-                    "YouTube OAuth2 클라이언트 보안 비밀 파일(client_secret.json)이 필요합니다.\n"
-                    "Google Cloud Console에서 다운로드하여 credentials/youtube_client_secret.json 경로에 넣어주세요."
+                    "YouTube 업로드를 위한 OAuth2 설정이 필요합니다.\n"
+                    "다음 두 가지 방법 중 하나를 선택하세요:\n"
+                    "1) .env 파일에 YOUTUBE_CLIENT_ID 및 YOUTUBE_CLIENT_SECRET 등록\n"
+                    "2) Google Cloud Console에서 다운로드한 client_secret.json을 credentials/ 폴더에 저장"
                 )
-            flow = InstalledAppFlow.from_client_secrets_file(self.client_secret_file, self.SCOPES)
-            creds = flow.run_local_server(port=0, prompt="consent", authorization_prompt_message="")
+
+            flow_run = getattr(flow, 'run_local_server', None)
+            if flow_run:
+                creds = flow.run_local_server(port=0, prompt="consent", authorization_prompt_message="")
+            else:
+                creds = flow.run_console()
+
             with open(YOUTUBE_TOKEN_FILE, "w", encoding="utf-8") as f:
                 f.write(creds.to_json())
 
@@ -330,3 +355,4 @@ class InstagramUploader:
 # 싱글톤 인스턴스
 youtube_uploader = YouTubeUploader()
 instagram_uploader = InstagramUploader()
+

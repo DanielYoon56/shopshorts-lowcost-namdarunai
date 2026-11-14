@@ -1771,9 +1771,9 @@ with tab_publish:
             if yt_auth_ok:
                 st.markdown('<div class="status-pill pill-green"><span class="status-dot dot-green"></span> YouTube OAuth 인증 완료 (연결됨)</div>', unsafe_allow_html=True)
             elif yt_conf_ok:
-                st.markdown('<div class="status-pill pill-gray"><span class="status-dot dot-idle"></span> client_secret.json 준비됨 (최초 1회 로그인 필요)</div>', unsafe_allow_html=True)
+                st.markdown('<div class="status-pill pill-gray"><span class="status-dot dot-idle"></span> OAuth 클라이언트 준비됨 (최초 1회 로그인 필요)</div>', unsafe_allow_html=True)
             else:
-                st.markdown('<div class="status-pill pill-red"><span class="status-dot dot-red"></span> client_secret.json 등록 필요</div>', unsafe_allow_html=True)
+                st.markdown('<div class="status-pill pill-red"><span class="status-dot dot-red"></span> YouTube OAuth 설정 필요 (.env 또는 JSON)</div>', unsafe_allow_html=True)
 
             col_yt_opt1, col_yt_opt2 = st.columns([1, 1])
             with col_yt_opt1:
@@ -1829,11 +1829,27 @@ with tab_publish:
 
             with st.expander("⚙️ YouTube API 연동 방법 (최초 1회 설정)"):
                 st.markdown("""
-                1. [Google Cloud Console](https://console.cloud.google.com/) 접속
-                2. 프로젝트 생성 ➔ **YouTube Data API v3** 검색 후 [사용] 클릭
-                3. **사용자 인증 정보** ➔ OAuth 클라이언트 ID 만들기 (유형: **데스크톱 앱**)
-                4. 생성된 JSON을 다운로드하여 파일명을 `youtube_client_secret.json`으로 변경 후 `c:\\11_ShopShorts_LowCost_namdarun\\credentials\\` 폴더에 넣기
-                5. 위 업로드 버튼을 누르면 브라우저 로그인 창이 뜨며 최초 1회 인증 완료!
+                YouTube 영상 업로드는 읽기 전용 API 키(`AIzaSy...`)로는 불가능하며, 내 채널에 업로드 권한을 부여하는 **OAuth 2.0 클라이언트 인증**이 필요합니다.
+
+                **[1단계: Google Cloud Console 준비]**
+                1. [Google Cloud Console](https://console.cloud.google.com/) 접속 및 프로젝트 생성
+                2. **API 및 서비스** ➔ **라이브러리** ➔ **YouTube Data API v3** 검색 후 [사용] 클릭
+                3. **OAuth 동의 화면** 설정 (User Type: 외부, 테스트 사용자에 본인 구글 이메일 등록)
+                4. **사용자 인증 정보** ➔ [사용자 인증 정보 만들기] ➔ **OAuth 클라이언트 ID** (애플리케이션 유형: **데스크톱 앱(Desktop App)**)
+
+                **[2단계: 등록 (둘 중 편한 방식 1가지 선택)]**
+                - **방법 A (.env에 직접 입력)**:
+                  발급받은 클라이언트 ID와 보안 비밀번호를 `.env` 파일에 추가:
+                  ```env
+                  YOUTUBE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
+                  YOUTUBE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxx
+                  ```
+                - **방법 B (JSON 파일 다운로드)**:
+                  다운로드한 JSON 파일을 `youtube_client_secret.json`으로 이름 변경하여 `c:\\11_ShopShorts_LowCost_namdarun\\credentials\\` 폴더에 넣기
+
+                **[3단계: 최초 로그인]**
+                - 위 **YouTube Shorts 즉시 업로드** 버튼을 누르면 브라우저에 구글 로그인 창이 뜹니다.
+                - 내 유튜브 채널 구글 계정으로 로그인하고 승인하면 `credentials/youtube_token.json`에 영구 저장되어 이후로는 원클릭 자동 업로드됩니다!
                 """)
 
         # ----------------- B. 인스타그램 릴스 -----------------
