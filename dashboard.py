@@ -1759,7 +1759,7 @@ with tab_publish:
                     t_path = generate_shorts_thumbnail(current_project_path)
                     if t_path and os.path.exists(t_path):
                         target_lbl = f"✨ 직접 등록한 맞춤 썸네일 ({os.path.basename(t_path)})"
-                        st.session_state[f"thumb_select_{selected_folder}"] = target_lbl
+                        st.session_state[f"selected_thumb_label_{selected_folder}"] = target_lbl
                         st.success("🎉 고화질 9:16 썸네일 합성 완료! 대표 썸네일로 자동 지정되었습니다.")
                         st.rerun()
                     else:
@@ -1800,15 +1800,15 @@ with tab_publish:
             chosen_thumb_path = None
             if thumb_cands:
                 cand_labels = [c[0] for c in thumb_cands]
-                current_sel = st.session_state.get(f"thumb_select_{selected_folder}")
+                current_sel = st.session_state.get(f"selected_thumb_label_{selected_folder}")
                 default_idx = cand_labels.index(current_sel) if (current_sel and current_sel in cand_labels) else 0
 
                 sel_cand_label = st.selectbox(
                     "등록할 썸네일 선택",
                     cand_labels,
-                    index=default_idx,
-                    key=f"thumb_select_{selected_folder}"
+                    index=default_idx
                 )
+                st.session_state[f"selected_thumb_label_{selected_folder}"] = sel_cand_label
                 chosen_thumb_path = next((c[1] for c in thumb_cands if c[0] == sel_cand_label), thumb_cands[0][1])
                 if chosen_thumb_path and os.path.exists(chosen_thumb_path):
                     st.image(chosen_thumb_path, caption=f"선택된 썸네일: {os.path.basename(chosen_thumb_path)}", width=220)
@@ -1835,7 +1835,7 @@ with tab_publish:
                 
                 # 세션 상태 갱신하여 드롭다운이 즉시 이 이미지를 선택하도록 함
                 target_label = f"✨ 직접 등록한 맞춤 썸네일 (섬네일{ext})"
-                st.session_state[f"thumb_select_{selected_folder}"] = target_label
+                st.session_state[f"selected_thumb_label_{selected_folder}"] = target_label
                 st.success("🎉 새 맞춤 썸네일 등록 완료! 대표 썸네일로 자동 지정되었습니다.")
                 st.rerun()
 
