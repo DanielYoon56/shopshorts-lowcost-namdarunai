@@ -1676,11 +1676,7 @@ with tab_video:
                 with open(final_save_path, "wb") as f:
                     f.write(uploaded_final_video.getbuffer())
                 st.session_state["last_uploaded_capcut_sig"] = file_sig
-                st.session_state["uploaded_video_just_now"] = True
-                st.rerun()
-
-        if st.session_state.pop("uploaded_video_just_now", False):
-            st.success("✅ 캡컷 완성 영상이 대시보드에 성공적으로 등록되었습니다! (`output.mp4`)")
+                st.success("✅ 캡컷 완성 영상이 대시보드에 성공적으로 등록되었습니다! (`output.mp4`)")
 
     st.markdown("---")
     st.markdown("#### 📺 최종 완성된 쇼츠 비디오 플레이어")
@@ -1787,7 +1783,6 @@ with tab_publish:
                     target_label = f"✨ 직접 등록한 맞춤 썸네일 (섬네일{ext})"
                     st.session_state[f"selected_thumb_label_{selected_folder}"] = target_label
                     st.success("🎉 새 맞춤 썸네일 등록 완료! 대표 썸네일로 자동 지정되었습니다.")
-                    st.rerun()
 
             # C. 썸네일 후보군 자동 탐색
             thumb_cands = []
@@ -2090,17 +2085,19 @@ with tab_assets:
         key=f"tab_assets_uploader_{selected_folder}"
     )
     if uploaded_files:
-        for uf in uploaded_files:
-            if uf.name.endswith(".mp4") or uf.name.endswith(".mov"):
-                target_save = os.path.join(current_project_path, uf.name)
-            else:
-                assets_dir = os.path.join(current_project_path, "assets")
-                os.makedirs(assets_dir, exist_ok=True)
-                target_save = os.path.join(assets_dir, uf.name)
-            with open(target_save, "wb") as f:
-                f.write(uf.getbuffer())
-        st.success(f"{len(uploaded_files)}개 파일 업로드 완료!")
-        st.rerun()
+        assets_sig = f"{len(uploaded_files)}_{'_'.join(f.name for f in uploaded_files)}_{selected_folder}"
+        if st.session_state.get(f"last_assets_sig_{selected_folder}") != assets_sig:
+            for uf in uploaded_files:
+                if uf.name.endswith(".mp4") or uf.name.endswith(".mov"):
+                    target_save = os.path.join(current_project_path, uf.name)
+                else:
+                    assets_dir = os.path.join(current_project_path, "assets")
+                    os.makedirs(assets_dir, exist_ok=True)
+                    target_save = os.path.join(assets_dir, uf.name)
+                with open(target_save, "wb") as f:
+                    f.write(uf.getbuffer())
+            st.session_state[f"last_assets_sig_{selected_folder}"] = assets_sig
+            st.success(f"{len(uploaded_files)}개 파일 업로드 완료!")
 
     st.markdown("---")
     st.markdown("#### 📁 현재 저장된 에셋 목록")
