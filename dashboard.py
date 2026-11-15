@@ -662,9 +662,6 @@ with st.sidebar:
 
     # 2) AI 이미지 엔진
     st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#5f6368; margin-top:3px; margin-bottom:2px;">IMAGE MODEL</div>', unsafe_allow_html=True)
-    g_key = os.getenv("GEMINI_API_KEY")
-    hf_token = os.getenv("HF_TOKEN")
-    sf_key = os.getenv("SILICONFLOW_API_KEY")
 
     sidebar_img_choice = st.radio(
         "사용할 AI 이미지 엔진",
@@ -686,13 +683,6 @@ with st.sidebar:
         selected_img_engine = "siliconflow"
     st.session_state["global_image_engine"] = selected_img_engine
 
-    if selected_img_engine == "gemini":
-        st.caption("✨ 실물 사진 1:1 레퍼런스 9:16 정밀 생성" if (g_key and len(g_key) > 5) else "⚠️ .env에 GEMINI_API_KEY 필요")
-    elif selected_img_engine == "hf":
-        st.caption("🤗 Hugging Face Serverless FLUX 활성화" if hf_token else "⚠️ .env에 HF_TOKEN 필요")
-    else:
-        st.caption("🚀 SiliconFlow 고속 생성 활성화" if sf_key else "⚠️ .env에 SILICONFLOW_API_KEY 필요")
-
     # 3) TTS 음성 엔진
     st.markdown('<div style="font-size:0.75rem; font-weight:600; color:#5f6368; margin-top:5px; margin-bottom:2px;">SPEECH & TTS</div>', unsafe_allow_html=True)
     sidebar_tts_choice = st.radio(
@@ -705,12 +695,6 @@ with st.sidebar:
     )
     selected_tts_engine = "edge" if "Edge" in sidebar_tts_choice else ("gemini" if "Gemini" in sidebar_tts_choice else "qwen")
     st.session_state["global_tts_engine"] = selected_tts_engine
-    if selected_tts_engine == "edge":
-        st.caption("⚡ Edge-TTS (SunHiNeural) 고속 활성화")
-    elif selected_tts_engine == "gemini":
-        st.caption("✨ Google Gemini TTS (Kore/Puck) 활성화")
-    else:
-        st.caption("🎙️ 로컬 Qwen3-TTS 보이스 클론 활성화")
 
     st.markdown("<hr/>", unsafe_allow_html=True)
     st.markdown('<div class="aistudio-section-header">ENVIRONMENT STATUS</div>', unsafe_allow_html=True)
