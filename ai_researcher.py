@@ -395,3 +395,10 @@ def save_research_artifacts(target_folder, result_dict):
     with open(os.path.join(target_folder, "publish_kit.md"), "w", encoding="utf-8") as f:
         f.write(pub_content.strip() + "\n")
 
+    # 5. 레퍼런스 이미지 또는 1번 컷이 존재하는 경우 썸네일도 선제 자동 합성
+    try:
+        from thumbnail_maker import generate_shorts_thumbnail
+        generate_shorts_thumbnail(target_folder)
+    except Exception as e:
+        print(f"[!] 초기 썸네일 합성 생략: {e}")
+

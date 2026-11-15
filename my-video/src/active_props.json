@@ -1,293 +1,260 @@
 {
-  "folderName": "261112_브라우풍크트",
+  "folderName": "261115_신일EMF싱글매트",
   "audioFileName": "output_1.2x.wav",
-  "durationInFrames": 815,
+  "durationInFrames": 684,
   "sceneData": [
     {
       "scene_id": 1,
       "start": 0.0,
-      "end": 1.21,
-      "duration_frames": 36,
+      "end": 1.03,
+      "duration_frames": 30,
       "text_blocks": [
         {
-          "text": "아무리 격렬하게",
+          "text": "외출하고 나서",
           "start": 0.0,
-          "end": 1.21
+          "end": 1.03
         }
       ]
     },
     {
       "scene_id": 2,
-      "start": 1.21,
-      "end": 2.07,
-      "duration_frames": 25,
+      "start": 1.03,
+      "end": 2.22,
+      "duration_frames": 35,
       "text_blocks": [
         {
-          "text": "뛰어도 절대",
-          "start": 1.21,
-          "end": 2.07
+          "text": "전기장판 껐는지",
+          "start": 1.03,
+          "end": 2.22
         }
       ]
     },
     {
       "scene_id": 3,
-      "start": 2.07,
-      "end": 3.28,
-      "duration_frames": 36,
+      "start": 2.22,
+      "end": 3.76,
+      "duration_frames": 46,
       "text_blocks": [
         {
-          "text": "안 떨어집니다.",
-          "start": 2.07,
-          "end": 3.28
+          "text": "온종일 불안하셨죠?",
+          "start": 2.22,
+          "end": 3.76
         }
       ]
     },
     {
       "scene_id": 4,
-      "start": 3.28,
-      "end": 4.33,
-      "duration_frames": 31,
+      "start": 3.76,
+      "end": 5.44,
+      "duration_frames": 50,
       "text_blocks": [
         {
-          "text": "커널형 쓰다가",
-          "start": 3.28,
-          "end": 4.33
+          "text": "신일 EMF 전기요로",
+          "start": 3.76,
+          "end": 5.44
         }
       ]
     },
     {
       "scene_id": 5,
-      "start": 4.33,
-      "end": 5.56,
-      "duration_frames": 36,
+      "start": 5.44,
+      "end": 7.12,
+      "duration_frames": 50,
       "text_blocks": [
         {
-          "text": "귀 아프고 땀 차서",
-          "start": 4.33,
-          "end": 5.56
+          "text": "그 걱정 싹 잊으세요.",
+          "start": 5.44,
+          "end": 7.12
         }
       ]
     },
     {
       "scene_id": 6,
-      "start": 5.56,
-      "end": 6.44,
-      "duration_frames": 26,
+      "start": 7.12,
+      "end": 8.46,
+      "duration_frames": 40,
       "text_blocks": [
         {
-          "text": "툭 떨어진 적",
-          "start": 5.56,
-          "end": 6.44
+          "text": "싱글 침대에 딱 맞는",
+          "start": 7.12,
+          "end": 8.46
         }
       ]
     },
     {
       "scene_id": 7,
-      "start": 6.44,
-      "end": 7.32,
-      "duration_frames": 26,
+      "start": 8.46,
+      "end": 9.79,
+      "duration_frames": 39,
       "text_blocks": [
         {
-          "text": "많으시죠?",
-          "start": 6.44,
-          "end": 7.32
+          "text": "깔끔한 다이아몬드",
+          "start": 8.46,
+          "end": 9.79
         }
       ]
     },
     {
       "scene_id": 8,
-      "start": 7.32,
-      "end": 8.71,
-      "duration_frames": 41,
+      "start": 9.79,
+      "end": 10.96,
+      "duration_frames": 35,
       "text_blocks": [
         {
-          "text": "블라우풍트 오픈형",
-          "start": 7.32,
-          "end": 8.71
+          "text": "누빔 매트예요.",
+          "start": 9.79,
+          "end": 10.96
         }
       ]
     },
     {
       "scene_id": 9,
-      "start": 8.71,
-      "end": 9.75,
-      "duration_frames": 31,
+      "start": 10.96,
+      "end": 12.12,
+      "duration_frames": 34,
       "text_blocks": [
         {
-          "text": "이어폰은 귀에",
-          "start": 8.71,
-          "end": 9.75
+          "text": "취침 모드부터",
+          "start": 10.96,
+          "end": 12.12
         }
       ]
     },
     {
       "scene_id": 10,
-      "start": 9.75,
-      "end": 11.32,
-      "duration_frames": 47,
+      "start": 12.12,
+      "end": 13.85,
+      "duration_frames": 51,
       "text_blocks": [
         {
-          "text": "가볍게 걸쳐줍니다.",
-          "start": 9.75,
-          "end": 11.32
+          "text": "고온까지 총 9단계로",
+          "start": 12.12,
+          "end": 13.85
         }
       ]
     },
     {
       "scene_id": 11,
-      "start": 11.32,
-      "end": 12.26,
-      "duration_frames": 28,
+      "start": 13.85,
+      "end": 15.2,
+      "duration_frames": 40,
       "text_blocks": [
         {
-          "text": "귀 구멍을 전혀",
-          "start": 11.32,
-          "end": 12.26
+          "text": "내 몸에 딱 맞추고",
+          "start": 13.85,
+          "end": 15.2
         }
       ]
     },
     {
       "scene_id": 12,
-      "start": 12.26,
-      "end": 13.35,
-      "duration_frames": 32,
+      "start": 15.2,
+      "end": 15.96,
+      "duration_frames": 22,
       "text_blocks": [
         {
-          "text": "막지 않아 답답함",
-          "start": 12.26,
-          "end": 13.35
+          "text": "15시간 뒤",
+          "start": 15.2,
+          "end": 15.96
         }
       ]
     },
     {
       "scene_id": 13,
-      "start": 13.35,
-      "end": 14.75,
-      "duration_frames": 42,
+      "start": 15.96,
+      "end": 16.86,
+      "duration_frames": 26,
       "text_blocks": [
         {
-          "text": "제로에 주변 소리까지",
-          "start": 13.35,
-          "end": 14.75
+          "text": "알아서 꺼지는",
+          "start": 15.96,
+          "end": 16.86
         }
       ]
     },
     {
       "scene_id": 14,
-      "start": 14.75,
-      "end": 16.16,
-      "duration_frames": 42,
+      "start": 16.86,
+      "end": 17.77,
+      "duration_frames": 27,
       "text_blocks": [
         {
-          "text": "안전하게 들립니다.",
-          "start": 14.75,
-          "end": 16.16
+          "text": "자동 차단으로",
+          "start": 16.86,
+          "end": 17.77
         }
       ]
     },
     {
       "scene_id": 15,
-      "start": 16.16,
-      "end": 17.97,
-      "duration_frames": 54,
+      "start": 17.77,
+      "end": 19.28,
+      "duration_frames": 45,
       "text_blocks": [
         {
-          "text": "최신 블루투스 5.4와",
-          "start": 16.16,
-          "end": 17.97
+          "text": "깜빡해도 안심이에요.",
+          "start": 17.77,
+          "end": 19.28
         }
       ]
     },
     {
       "scene_id": 16,
-      "start": 17.97,
-      "end": 19.05,
-      "duration_frames": 32,
-      "text_blocks": [
-        {
-          "text": "최대 37시간",
-          "start": 17.97,
-          "end": 19.05
-        }
-      ]
-    },
-    {
-      "scene_id": 17,
-      "start": 19.05,
-      "end": 20.14,
-      "duration_frames": 32,
-      "text_blocks": [
-        {
-          "text": "연속 재생까지",
-          "start": 19.05,
-          "end": 20.14
-        }
-      ]
-    },
-    {
-      "scene_id": 18,
-      "start": 20.14,
+      "start": 19.28,
       "end": 21.04,
-      "duration_frames": 26,
+      "duration_frames": 52,
       "text_blocks": [
         {
-          "text": "완벽하죠.",
-          "start": 20.14,
+          "text": "프로필 링크를",
+          "start": 19.28,
           "end": 21.04
         }
       ]
     },
     {
-      "scene_id": 19,
+      "scene_id": 17,
       "start": 21.04,
-      "end": 22.47,
-      "duration_frames": 42,
+      "end": 22.8,
+      "duration_frames": 52,
       "text_blocks": [
         {
-          "text": "이제 귀 통증 없이",
+          "text": "참조하세요.",
           "start": 21.04,
-          "end": 22.47
+          "end": 22.8
         }
       ]
+    }
+  ],
+  "cutVideos": [
+    {
+      "cutIndex": 1,
+      "hasVideo": true,
+      "fileName": "cut1.mp4"
     },
     {
-      "scene_id": 20,
-      "start": 22.47,
-      "end": 24.3,
-      "duration_frames": 54,
-      "text_blocks": [
-        {
-          "text": "편하게 달리고 싶다면",
-          "start": 22.47,
-          "end": 24.3
-        }
-      ]
+      "cutIndex": 2,
+      "hasVideo": true,
+      "fileName": "cut2.mp4"
     },
     {
-      "scene_id": 21,
-      "start": 24.3,
-      "end": 25.94,
-      "duration_frames": 49,
-      "text_blocks": [
-        {
-          "text": "아래 프로필 링크를",
-          "start": 24.3,
-          "end": 25.94
-        }
-      ]
+      "cutIndex": 3,
+      "hasVideo": true,
+      "fileName": "cut3.mp4"
     },
     {
-      "scene_id": 22,
-      "start": 25.94,
-      "end": 27.16,
-      "duration_frames": 36,
-      "text_blocks": [
-        {
-          "text": "확인하세요.",
-          "start": 25.94,
-          "end": 27.16
-        }
-      ]
+      "cutIndex": 4,
+      "hasVideo": true,
+      "fileName": "cut4.mp4"
+    },
+    {
+      "cutIndex": 5,
+      "hasVideo": true,
+      "fileName": "cut5.mp4"
+    },
+    {
+      "cutIndex": 6,
+      "hasVideo": true,
+      "fileName": "cut6.mp4"
     }
   ]
 }

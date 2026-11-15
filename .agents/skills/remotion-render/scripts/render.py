@@ -372,6 +372,20 @@ def main():
     if has_cut_sequence:
         props_data["cutVideos"] = cut_videos_info
 
+    # 썸네일 후킹 타이틀 카피 자동 로드 (영상 프레임 0부터 오버레이하여 모바일 쇼츠 썸네일 자동 확보)
+    try:
+        if PROJECT_ROOT not in sys.path:
+            sys.path.insert(0, PROJECT_ROOT)
+        from thumbnail_maker import extract_thumbnail_copy
+        thumb_copy = extract_thumbnail_copy(folder_path)
+        if thumb_copy:
+            first_line = thumb_copy.splitlines()[0].strip()
+            props_data["thumbnailTitle"] = first_line
+            props_data["thumbnailDurationFrames"] = 40
+            print(f"[*] 썸네일 후킹 오버레이 적용: '{first_line}'")
+    except Exception as e:
+        print(f"[!] 썸네일 후킹 타이틀 로드 생략: {e}")
+
     temp_props_path = os.path.join(folder_path, "temp_props.json")
     with open(temp_props_path, "w", encoding="utf-8") as f:
         json.dump(props_data, f, ensure_ascii=False, indent=2)

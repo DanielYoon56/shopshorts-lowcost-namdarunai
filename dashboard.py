@@ -1411,7 +1411,14 @@ with tab_images:
                     mode=img_mode_code,
                     progress_callback=update_progress
                 )
-            st.success("🎉 모든 컷의 AI 이미지 일괄 생성 및 9:16 크롭 완료!")
+                # 6개 컷 생성 직후 1번 컷 + 카피로 9:16 맞춤 썸네일도 선제 자동 합성
+                try:
+                    from thumbnail_maker import generate_shorts_thumbnail
+                    generate_shorts_thumbnail(current_project_path)
+                except Exception as te:
+                    print(f"[!] 썸네일 자동 생성 생략: {te}")
+
+            st.success("🎉 모든 컷의 AI 이미지 일괄 생성 및 9:16 썸네일 완성!")
             st.balloons()
             st.rerun()
         except Exception as e:
@@ -1519,6 +1526,36 @@ with tab_images:
             for i, sh_p in enumerate(sheets):
                 with sh_cols[i]:
                     st.image(sh_p, caption=os.path.basename(sh_p), use_container_width=True)
+
+    # 쇼츠 썸네일 자동 합성 섹션
+    st.markdown("---")
+    st.markdown("#### 🖼️ AI 맞춤 썸네일 컷 (쇼츠 전용 9:16 + 후킹 타이틀)")
+    st.caption("1번 컷(Cut 1) 배경에 기획된 후킹 타이틀 카피를 결합하여, 모바일 쇼츠 피드와 유튜브 커버에 최적화된 썸네일을 즉시 생성합니다.")
+
+    thumb_cands_t5 = [
+        os.path.join(current_project_path, "섬네일.png"),
+        os.path.join(current_project_path, "섬네일.jpg"),
+        os.path.join(current_project_path, "assets", "custom_thumbnail.png"),
+        os.path.join(current_project_path, "assets", "custom_thumbnail.jpg"),
+    ]
+    active_thumb_p = next((p for p in thumb_cands_t5 if os.path.exists(p)), None)
+
+    c_th_btn, c_th_prev = st.columns([1.3, 1.7])
+    with c_th_btn:
+        if st.button("🪄 AI 썸네일 컷 자동 생성 (1번 컷 + 카피 합성)", key="btn_gen_thumb_tab5", use_container_width=True):
+            with st.spinner("9:16 맞춤 썸네일 자동 생성 중..."):
+                from thumbnail_maker import generate_shorts_thumbnail
+                res = generate_shorts_thumbnail(current_project_path)
+                if res and os.path.exists(res):
+                    st.success("🎉 AI 썸네일 생성 완료! (`섬네일.png`)")
+                    st.rerun()
+                else:
+                    st.error("썸네일 생성 실패: 배경 이미지를 찾을 수 없습니다.")
+    with c_th_prev:
+        if active_thumb_p and os.path.exists(active_thumb_p):
+            st.image(active_thumb_p, caption=f"현재 썸네일: {os.path.basename(active_thumb_p)}", width=220)
+        else:
+            st.info("아직 생성된 썸네일이 없습니다. 위 버튼을 누르면 1초 만에 자동 생성됩니다.")
 
 # ------------------------------------------------------------------
 # TAB 6: Remotion 렌더링 & 최종 쇼츠 비디오 관리
@@ -1715,6 +1752,19 @@ with tab_publish:
             st.markdown("---")
             st.markdown("#### 🖼️ 대표 썸네일 (커버 이미지)")
             
+            # 1클릭 썸네일 자동 합성 버튼
+            if st.button("🪄 1번 컷 + 카피로 9:16 맞춤 썸네일 자동 생성", key=f"auto_gen_thumb_{selected_folder}", use_container_width=True):
+                with st.spinner("AI 썸네일 이미지 합성 중..."):
+                    from thumbnail_maker import generate_shorts_thumbnail
+                    t_path = generate_shorts_thumbnail(current_project_path)
+                    if t_path and os.path.exists(t_path):
+                        target_lbl = f"✨ 직접 등록한 맞춤 썸네일 ({os.path.basename(t_path)})"
+                        st.session_state[f"thumb_select_{selected_folder}"] = target_lbl
+                        st.success("🎉 고화질 9:16 썸네일 합성 완료! 대표 썸네일로 자동 지정되었습니다.")
+                        st.rerun()
+                    else:
+                        st.error("썸네일 생성 실패: 배경으로 쓸 이미지가 없습니다. 먼저 이미지를 생성하거나 업로드해주세요.")
+
             # 썸네일 후보군 자동 탐색
             thumb_cands = []
             

@@ -24,6 +24,8 @@ export const dynamicVideoSchema = z.object({
   videoFileName: z.string().optional(),
   audioFileName: z.string().optional(),
   disableAudio: z.boolean().optional(),
+  thumbnailTitle: z.string().optional(),
+  thumbnailDurationFrames: z.number().optional(),
   cutVideos: z
     .array(
       z.object({
@@ -53,6 +55,67 @@ export const dynamicVideoSchema = z.object({
 });
 
 type DynamicVideoProps = z.infer<typeof dynamicVideoSchema>;
+
+// Thumbnail Hook Overlay (영상 시작 첫 프레임부터 화면 상단에 볼드한 썸네일 타이틀 카드를 노출하여 모바일 쇼츠 피드 썸네일 보장)
+const ThumbnailHookOverlay: React.FC<{
+  thumbnailTitle: string;
+  durationFrames?: number;
+}> = ({ thumbnailTitle, durationFrames = 40 }) => {
+  const frame = useCurrentFrame();
+
+  if (frame >= durationFrames) {
+    return null;
+  }
+
+  // 마지막 8프레임 동안 부드러운 페이드아웃
+  const fadeFrames = 8;
+  const opacity =
+    frame > durationFrames - fadeFrames
+      ? (durationFrames - frame) / fadeFrames
+      : 1;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "20%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: "90%",
+        textAlign: "center",
+        zIndex: 25,
+        pointerEvents: "none",
+        opacity,
+      }}
+    >
+      <div
+        style={{
+          fontFamily,
+          fontSize: "56px",
+          fontWeight: 900,
+          color: "#FFE500",
+          textShadow: `
+            -4px -4px 0 #000,  
+             4px -4px 0 #000,
+            -4px  4px 0 #000,
+             4px  4px 0 #000,
+             0px 8px 18px rgba(0, 0, 0, 0.95)
+          `,
+          backgroundColor: "rgba(0, 0, 0, 0.85)",
+          padding: "18px 32px",
+          borderRadius: "26px",
+          border: "4px solid #FFE500",
+          display: "inline-block",
+          lineHeight: 1.3,
+          wordBreak: "keep-all",
+          letterSpacing: "-1.5px",
+        }}
+      >
+        {thumbnailTitle}
+      </div>
+    </div>
+  );
+};
 
 // Subtitle Overlay component
 const SubtitleOverlay: React.FC<{
@@ -170,6 +233,8 @@ export const DynamicVideo: React.FC<DynamicVideoProps> = ({
   videoFileName,
   audioFileName,
   disableAudio,
+  thumbnailTitle,
+  thumbnailDurationFrames,
   cutVideos,
   sceneData,
   durationInFrames,
@@ -284,6 +349,14 @@ export const DynamicVideo: React.FC<DynamicVideoProps> = ({
 
       {/* 3. Global Subtitles Overlay */}
       <SubtitleOverlay sceneData={sceneData} />
+
+      {/* 4. Thumbnail Hook Headline Overlay (영상 프레임 0부터 첫 1.3초간 노출되어 모바일 쇼츠 썸네일로 자동 인식) */}
+      {thumbnailTitle && (
+        <ThumbnailHookOverlay
+          thumbnailTitle={thumbnailTitle}
+          durationFrames={thumbnailDurationFrames || 40}
+        />
+      )}
     </AbsoluteFill>
   );
 };
