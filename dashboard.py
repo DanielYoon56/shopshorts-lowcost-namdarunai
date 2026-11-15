@@ -1939,6 +1939,15 @@ with tab_publish:
                 )
                 privacy_code = yt_privacy.split(" ")[0]
 
+                yt_lang = st.selectbox(
+                    "동영상 및 설명 언어",
+                    ["ko (한국어 - 기본)", "en (영어)", "ja (일본어)"],
+                    index=0,
+                    key=f"yt_lang_select_{selected_folder}",
+                    help="유튜브 스튜디오의 동영상 언어 및 제목/설명 언어로 자동 지정됩니다."
+                )
+                lang_code = yt_lang.split(" ")[0]
+
             with col_yt_opt2:
                 auto_shorts_tag = st.checkbox("제목에 #Shorts 자동 태그", value=True)
                 yt_thumb_opt = st.checkbox("유튜브 맞춤 썸네일 동시 등록", value=bool(chosen_thumb_path), help="왼쪽에서 선택한 썸네일을 유튜브 영상의 대표 썸네일로 등록합니다. (채널 전화번호 인증 필요)")
@@ -1972,6 +1981,7 @@ with tab_publish:
                             tags=tag_list,
                             privacy_status=privacy_code,
                             thumbnail_path=thumb_for_yt,
+                            default_language=lang_code,
                             progress_callback=on_yt_progress
                         )
                         yt_prog.progress(1.0)

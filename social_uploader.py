@@ -293,11 +293,13 @@ class YouTubeUploader:
         tags: list = None,
         privacy_status: str = "public",
         thumbnail_path: str = None,
+        default_language: str = "ko",
         progress_callback=None
     ) -> dict:
         """
-        유튜브 쇼츠 영상 업로드 (맞춤 썸네일 지원)
+        유튜브 쇼츠 영상 업로드 (맞춤 썸네일 지원, 한국어 기본 언어 설정)
         privacy_status: 'public', 'unlisted', 'private'
+        default_language: 'ko' (한국어)
         """
         from googleapiclient.http import MediaFileUpload
 
@@ -324,7 +326,9 @@ class YouTubeUploader:
                 "title": upload_title,
                 "description": description,
                 "tags": tags,
-                "categoryId": "22"  # People & Blogs (쇼츠 커머스 기본)
+                "categoryId": "22",  # People & Blogs (쇼츠 커머스 기본)
+                "defaultLanguage": default_language,
+                "defaultAudioLanguage": default_language,
             },
             "status": {
                 "privacyStatus": privacy_status,
