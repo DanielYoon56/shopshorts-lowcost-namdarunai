@@ -369,7 +369,29 @@ def save_research_artifacts(target_folder, result_dict):
             f.write(result_dict["prompts_md"].strip() + "\n")
 
     # 4. publish_kit.md
-    if result_dict.get("publish_kit_md"):
-        with open(os.path.join(target_folder, "publish_kit.md"), "w", encoding="utf-8") as f:
-            f.write(result_dict["publish_kit_md"].strip() + "\n")
+    pub_content = result_dict.get("publish_kit_md")
+    if not pub_content:
+        # 배포 키트가 누락된 경우 대본 및 기획 기반으로 자동 합성
+        prod_name = result_dict.get("product_name") or os.path.basename(target_folder)
+        script_txt = result_dict.get("script_md", "")
+        first_line = script_txt.splitlines()[0] if script_txt else f"{prod_name} 꿀템 리뷰"
+        clean_first = re.sub(r'[^\w\s가-힣\?\!\~\,\.]', '', first_line).strip()
+        
+        pub_content = f"""### 쇼츠 추천 제목 3종
+1. {clean_first}
+2. {prod_name} 써보고 진짜 놀란 3가지 이유!
+3. 아직도 고민해? 역대급 가성비 {prod_name} 솔직 후기
+
+### 영상 설명문
+{prod_name} 실사용 솔직 후기 영상입니다! ✨
+더 자세한 제품 정보와 할인은 프로필 링크를 확인해 보세요!
+
+### 해시태그 10종
+#{prod_name.replace(' ', '')} #쇼핑쇼츠 #추천템 #꿀템추천 #내돈내산 #가성비추천 #살림템 #생활꿀템 #꿀팁 #Shorts
+
+### 썸네일 카피
+"{prod_name} 솔직 후기 종결"
+"""
+    with open(os.path.join(target_folder, "publish_kit.md"), "w", encoding="utf-8") as f:
+        f.write(pub_content.strip() + "\n")
 

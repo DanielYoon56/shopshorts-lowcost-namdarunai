@@ -1706,6 +1706,17 @@ with tab_publish:
         # 1. 메타데이터 파싱 (publish_kit.md)
         pub_data = parse_publish_kit(current_project_path)
 
+        # publish_kit.md 파일이 없다면 스마트하게 생성 및 저장
+        pub_file_path = os.path.join(current_project_path, "publish_kit.md")
+        if not os.path.exists(pub_file_path) and pub_data.get("titles"):
+            try:
+                titles_formatted = "\n".join([f"{i+1}. {t}" for i, t in enumerate(pub_data["titles"])])
+                new_pub_content = f"### 쇼츠 추천 제목 3종\n{titles_formatted}\n\n### 영상 설명문\n{pub_data['description']}\n\n### 해시태그 10종\n{pub_data['hashtags']}\n"
+                with open(pub_file_path, "w", encoding="utf-8") as pf:
+                    pf.write(new_pub_content.strip() + "\n")
+            except Exception:
+                pass
+
         col_v_prev, col_v_form = st.columns([1, 1.4])
         with col_v_prev:
             st.markdown("#### 📺 업로드 대상 비디오")
@@ -1715,42 +1726,60 @@ with tab_publish:
             st.caption(f"파일명: `output.mp4` ({file_mb} MB) | 해상도: 1080x1920 (9:16)")
 
         with col_v_form:
-            st.markdown("#### 📝 게시 정보 편집 (publish_kit 기반 자동 완성)")
-            
-            # 제목 선택/입력
+            c_header, c_reload = st.columns([1.6, 1.4])
+            with c_header:
+                st.markdown("#### 📝 게시 정보 편집")
+            with c_reload:
+                if st.button("🔄 publish_kit 다시 불러오기", key=f"reload_pub_{selected_folder}", help="publish_kit.md 내용으로 입력란을 초기화하고 다시 채웁니다."):
+                    fresh_pub = parse_publish_kit(current_project_path)
+                    st.session_state[f"pub_final_title_{selected_folder}"] = fresh_pub.get("title", "")
+                    st.session_state[f"pub_final_desc_{selected_folder}"] = fresh_pub.get("description", "")
+                    st.session_state[f"pub_final_tags_{selected_folder}"] = fresh_pub.get("hashtags", "")
+                    st.rerun()
+
+            # 세션 스테이트 키 관리
+            title_key = f"pub_final_title_{selected_folder}"
+            desc_key = f"pub_final_desc_{selected_folder}"
+            tags_key = f"pub_final_tags_{selected_folder}"
+            select_key = f"pub_title_select_{selected_folder}"
+
             title_options = pub_data.get("titles", [])
             default_title = pub_data.get("title", "")
+
+            # 세션 상태 기본값 초기화
+            if title_key not in st.session_state or not st.session_state[title_key]:
+                st.session_state[title_key] = title_options[0] if title_options else default_title
+            if desc_key not in st.session_state or not st.session_state[desc_key]:
+                st.session_state[desc_key] = pub_data.get("description", "")
+            if tags_key not in st.session_state or not st.session_state[tags_key]:
+                st.session_state[tags_key] = pub_data.get("hashtags", "")
+
+            def on_title_dropdown_change():
+                st.session_state[title_key] = st.session_state[select_key]
+
             if title_options:
-                chosen_title = st.selectbox(
-                    "📌 추천 제목 선택",
+                st.selectbox(
+                    "📌 추천 제목 선택 (선택 시 아래 제목란에 자동 반영)",
                     title_options,
-                    index=0,
-                    key=f"pub_title_select_{selected_folder}"
+                    key=select_key,
+                    on_change=on_title_dropdown_change
                 )
-                final_title = st.text_input(
-                    "최종 제목 (수정 가능, 최대 100자)",
-                    value=chosen_title,
-                    key=f"pub_final_title_{selected_folder}"
-                )
-            else:
-                final_title = st.text_input(
-                    "최종 제목 (최대 100자)",
-                    value=default_title,
-                    key=f"pub_final_title_{selected_folder}"
-                )
+
+            final_title = st.text_input(
+                "최종 제목 (수정 가능, 최대 100자)",
+                key=title_key
+            )
 
             final_desc = st.text_area(
                 "📄 본문 설명문 (Description)",
-                value=pub_data.get("description", ""),
                 height=110,
-                key=f"pub_final_desc_{selected_folder}"
+                key=desc_key
             )
 
             final_tags = st.text_area(
                 "🏷️ 해시태그 (Hashtags)",
-                value=pub_data.get("hashtags", ""),
                 height=65,
-                key=f"pub_final_tags_{selected_folder}"
+                key=tags_key
             )
 
             # 인스타 캡션 (설명문 + 해시태그)

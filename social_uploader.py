@@ -23,62 +23,118 @@ INSTAGRAM_SESSION_FILE = CREDENTIALS_DIR / "instagram_session.json"
 
 
 # =====================================================================
-# 1. 배포 키트 파서 (publish_kit.md 분석)
+# 1. 배포 키트 파서 (publish_kit.md 분석 및 스마트 자동 추출)
 # =====================================================================
 def parse_publish_kit(project_folder: str) -> dict:
     """
     프로젝트 폴더 내 publish_kit.md 파일을 파싱하여
-    추천 제목 리스트, 설명문, 해시태그 목록을 반환
+    추천 제목 리스트, 설명문, 해시태그 목록을 반환.
+    파일이 없거나 특정 항목이 비어있으면 대본/기획에서 스마트하게 자동 추출 및 합성.
     """
-    pub_path = os.path.join(project_folder, "publish_kit.md")
+    folder_base = os.path.basename(project_folder)
+    clean_name = re.sub(r'^\d+[\-_]?', '', folder_base).strip() or folder_base
+
     result = {
-        "title": "쇼핑 쇼츠 추천 아이템 #Shorts",
+        "title": f"{clean_name} 추천템 #Shorts",
         "titles": [],
-        "description": "프로필 링크에서 자세한 상품 정보를 확인하세요!",
-        "hashtags": "#쇼핑쇼츠 #추천템 #꿀템",
+        "description": "",
+        "hashtags": "",
         "full_caption": ""
     }
-    
+
+    # 1. 파일 탐색 (publish_kit.md 또는 배포 관련 마크다운)
+    pub_path = os.path.join(project_folder, "publish_kit.md")
     if not os.path.exists(pub_path):
-        return result
+        import glob
+        cands = glob.glob(os.path.join(project_folder, "*publish*.md")) + glob.glob(os.path.join(project_folder, "*배포*.md"))
+        if cands:
+            pub_path = cands[0]
 
-    try:
-        with open(pub_path, "r", encoding="utf-8") as f:
-            content = f.read()
+    content = ""
+    if os.path.exists(pub_path):
+        try:
+            with open(pub_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception as e:
+            print(f"[!] publish_kit.md 읽기 실패: {e}")
 
-        # 1) 제목 목록 파싱
-        title_section = re.search(r'###\s*쇼츠\s*추천\s*제목.*?\n(.*?)(?=###|\Z)', content, re.DOTALL)
+    if content:
+        # 1) 제목 목록 파싱 (제목, Title, 쇼츠 제목 등 다양한 포맷 지원)
+        title_section = re.search(r'#{1,4}\s*.*?(?:제목|title).*?\n(.*?)(?=#{1,4}|\Z)', content, re.DOTALL | re.IGNORECASE)
         if title_section:
             raw_titles = [line.strip() for line in title_section.group(1).splitlines() if line.strip()]
-            titles = []
             for t in raw_titles:
-                clean_t = re.sub(r'^\d+[\.\)]\s*', '', t).strip()
-                if clean_t:
-                    titles.append(clean_t)
-            if titles:
-                result["titles"] = titles
-                result["title"] = titles[0]
+                clean_t = re.sub(r'^(\d+[\.\)]|\-|\*)\s*', '', t).strip(' "\'#')
+                if clean_t and len(clean_t) > 3 and not clean_t.startswith("#"):
+                    result["titles"].append(clean_t)
 
-        # 2) 설명문 파싱
-        desc_section = re.search(r'###\s*영상\s*설명문.*?\n(.*?)(?=###|\Z)', content, re.DOTALL)
+        # 2) 설명문 파싱 (설명문, 상세 설명문, 설명, Description 등)
+        desc_section = re.search(r'#{1,4}\s*.*?(?:설명문|설명|description|본문).*?\n(.*?)(?=#{1,4}|\Z)', content, re.DOTALL | re.IGNORECASE)
         if desc_section:
             desc_text = desc_section.group(1).strip()
             if desc_text:
                 result["description"] = desc_text
 
         # 3) 해시태그 파싱
-        tag_section = re.search(r'###\s*해시태그.*?\n(.*?)(?=###|\Z)', content, re.DOTALL)
+        tag_section = re.search(r'#{1,4}\s*.*?(?:해시\s*태그|태그|hashtag).*?\n(.*?)(?=#{1,4}|\Z)', content, re.DOTALL | re.IGNORECASE)
         if tag_section:
             tag_text = tag_section.group(1).strip()
             if tag_text:
                 result["hashtags"] = tag_text
+        if not result["hashtags"]:
+            # 본문에서 #태그만 모두 정규식 추출
+            all_tags = re.findall(r'#[\w가-힣]+', content)
+            if all_tags:
+                result["hashtags"] = " ".join(all_tags)
 
-        # 전체 캡션 조립 (설명문 + 해시태그)
-        result["full_caption"] = f"{result['description']}\n\n{result['hashtags']}"
+    # 4. 폴백: script.md / plan.md / whisper / scene_data 기반 보완
+    script_first_line = ""
+    script_full_text = ""
+    s_path = os.path.join(project_folder, "script.md")
+    if os.path.exists(s_path):
+        try:
+            with open(s_path, "r", encoding="utf-8") as sf:
+                s_lines = [l.strip() for l in sf.read().splitlines() if l.strip()]
+                if s_lines:
+                    script_first_line = s_lines[0]
+                    script_full_text = "\n".join(s_lines)
+        except Exception:
+            pass
+    elif os.path.exists(os.path.join(project_folder, "whisper_transcription.json")):
+        try:
+            with open(os.path.join(project_folder, "whisper_transcription.json"), "r", encoding="utf-8") as wf:
+                w_data = json.load(wf)
+                script_full_text = w_data.get("text", "")
+                if "?" in script_full_text:
+                    script_first_line = script_full_text.split("?")[0] + "?"
+                else:
+                    script_first_line = script_full_text[:35]
+        except Exception:
+            pass
 
-    except Exception as e:
-        print(f"[!] publish_kit.md 파싱 실패: {e}")
+    # 제목 보완
+    if not result["titles"]:
+        if script_first_line:
+            clean_s1 = re.sub(r'^[^\w가-힣\?]+', '', script_first_line).strip()
+            result["titles"].append(clean_s1)
+        result["titles"].append(f"{clean_name} 써보고 진짜 놀란 3가지 이유! #Shorts")
+        result["titles"].append(f"역대급 가성비 {clean_name} 솔직 후기")
+    result["title"] = result["titles"][0]
 
+    # 설명문 보완
+    if not result["description"]:
+        if script_full_text:
+            result["description"] = f"{script_full_text[:140]}...\n\n👉 더 자세한 제품 정보와 할인은 프로필 링크를 확인해 보세요!"
+        else:
+            result["description"] = f"{clean_name} 실사용 솔직 후기 및 추천 영상입니다.\n더 자세한 제품 정보와 할인은 프로필 링크를 참조하세요!"
+
+    # 해시태그 보완
+    if not result["hashtags"]:
+        tag_prod = re.sub(r'[^\w가-힣]', '', clean_name)
+        result["hashtags"] = f"#{tag_prod} #쇼핑쇼츠 #추천템 #꿀템추천 #내돈내산 #가성비추천 #Shorts"
+
+    # 전체 캡션 조립
+    result["full_caption"] = f"{result['description']}\n\n{result['hashtags']}".strip()
     return result
 
 
