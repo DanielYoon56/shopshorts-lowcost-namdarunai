@@ -86,10 +86,44 @@ def parse_publish_kit(project_folder: str) -> dict:
 # 2. 유튜브 쇼츠 업로더 (YouTube Data API v3)
 # =====================================================================
 class YouTubeUploader:
-    SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+    SCOPES = [
+        "https://www.googleapis.com/auth/youtube.upload",
+        "https://www.googleapis.com/auth/youtube.readonly",
+    ]
 
     def __init__(self):
         self.client_secret_file = self._find_client_secret()
+
+    def logout(self):
+        """저장된 토큰 삭제하여 다른 계정/브랜드 채널로 재인증할 수 있도록 함"""
+        if YOUTUBE_TOKEN_FILE.exists():
+            try:
+                os.remove(YOUTUBE_TOKEN_FILE)
+                return True
+            except Exception as e:
+                print(f"[!] 토큰 삭제 실패: {e}")
+        return False
+
+    def get_channel_info(self) -> dict | None:
+        """현재 연결된 채널 이름 및 정보 조회"""
+        if not self.is_authenticated():
+            return None
+        try:
+            service = self.get_service()
+            response = service.channels().list(mine=True, part="snippet").execute()
+            items = response.get("items", [])
+            if items:
+                snippet = items[0].get("snippet", {})
+                return {
+                    "id": items[0].get("id"),
+                    "title": snippet.get("title", ""),
+                    "description": snippet.get("description", ""),
+                    "customUrl": snippet.get("customUrl", ""),
+                }
+        except Exception as e:
+            # 기존 구형 토큰 등으로 인한 권한 부족 시 조용히 넘김
+            print(f"[!] 채널 정보 조회 오류 (재인증 권장): {e}")
+        return None
 
     def _find_client_secret(self) -> str | None:
         """credentials 폴더 또는 루트에서 client_secret.json 탐색"""
@@ -183,7 +217,8 @@ class YouTubeUploader:
 
             flow_run = getattr(flow, 'run_local_server', None)
             if flow_run:
-                creds = flow.run_local_server(port=0, prompt="consent", authorization_prompt_message="")
+                # select_account consent: 여러 채널/브랜드 계정이 있을 때 채널 선택 화면을 강제로 띄움
+                creds = flow.run_local_server(port=0, prompt="select_account consent", authorization_prompt_message="")
             else:
                 creds = flow.run_console()
 

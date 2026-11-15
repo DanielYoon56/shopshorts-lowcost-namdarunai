@@ -1769,7 +1769,16 @@ with tab_publish:
             yt_conf_ok = youtube_uploader.is_configured()
 
             if yt_auth_ok:
-                st.markdown('<div class="status-pill pill-green"><span class="status-dot dot-green"></span> YouTube OAuth 인증 완료 (연결됨)</div>', unsafe_allow_html=True)
+                ch_info = youtube_uploader.get_channel_info()
+                ch_title = ch_info.get("title", "") if ch_info else ""
+                if ch_title:
+                    st.markdown(f'<div class="status-pill pill-green"><span class="status-dot dot-green"></span> 연결된 채널: <strong>{ch_title}</strong></div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="status-pill pill-green"><span class="status-dot dot-green"></span> YouTube OAuth 인증 완료 (연결됨)</div>', unsafe_allow_html=True)
+                
+                if st.button("🔄 다른 브랜드 채널로 변경 / 다시 로그인", key=f"yt_logout_btn_{selected_folder}", help="기존 연결을 해제하고 원하는 브랜드 채널을 브라우저에서 다시 선택합니다."):
+                    youtube_uploader.logout()
+                    st.rerun()
             elif yt_conf_ok:
                 st.markdown('<div class="status-pill pill-gray"><span class="status-dot dot-idle"></span> OAuth 클라이언트 준비됨 (최초 1회 로그인 필요)</div>', unsafe_allow_html=True)
             else:
