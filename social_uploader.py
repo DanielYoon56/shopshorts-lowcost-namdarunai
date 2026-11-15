@@ -144,6 +144,8 @@ def parse_publish_kit(project_folder: str) -> dict:
 class YouTubeUploader:
     SCOPES = [
         "https://www.googleapis.com/auth/youtube.upload",
+        "https://www.googleapis.com/auth/youtube.force-ssl",
+        "https://www.googleapis.com/auth/youtube",
         "https://www.googleapis.com/auth/youtube.readonly",
     ]
 
@@ -343,19 +345,36 @@ class YouTubeUploader:
 
         video_id = response.get("id")
 
-        # 썸네일 업로드 처리 (유튜브 인코딩 등록 대기 및 3회 재시도)
+        # 썸네일 업로드 처리 (YouTube 2MB 제한 준수 및 인코딩 등록 대기 3회 재시도)
         thumbnail_uploaded = False
         thumbnail_note = ""
         if thumbnail_path and os.path.exists(thumbnail_path):
             if progress_callback:
                 progress_callback(0.96)
-            mime_t = "image/png" if thumbnail_path.lower().endswith(".png") else "image/jpeg"
+
+            # [핵심] YouTube Data API의 엄격한 2MB(2,097,152 바이트) 파일 크기 제한 보장
+            actual_thumb_path = thumbnail_path
+            temp_thumb_jpg = None
+            try:
+                file_size = os.path.getsize(thumbnail_path)
+                # 1.9MB 이상이거나 PNG 파일인 경우, 안전하게 고화질 JPEG(약 400~800KB)로 자동 최적화 변환
+                if file_size >= 1950000 or thumbnail_path.lower().endswith(".png"):
+                    from PIL import Image
+                    temp_thumb_jpg = os.path.join(os.path.dirname(thumbnail_path), "_yt_thumb_optimized.jpg")
+                    with Image.open(thumbnail_path) as im:
+                        im.convert("RGB").save(temp_thumb_jpg, "JPEG", quality=90, optimize=True)
+                    actual_thumb_path = temp_thumb_jpg
+                    print(f"[*] YouTube 썸네일 2MB 규격 자동 최적화: {file_size:,}B -> {os.path.getsize(actual_thumb_path):,}B")
+            except Exception as opt_err:
+                print(f"[!] 썸네일 최적화 변환 실패 (원본 사용): {opt_err}")
+
+            mime_t = "image/jpeg" if actual_thumb_path.lower().endswith((".jpg", ".jpeg")) else "image/png"
             
             # 유튜브 백엔드에서 비디오 ID 생성 직후 썸네일을 즉시 붙이면 거부되거나 덮어쓰여질 수 있으므로 재시도 처리
             for attempt in range(1, 4):
                 try:
                     time.sleep(attempt * 2)  # 2초, 4초, 6초 지연 후 시도
-                    thumb_media = MediaFileUpload(thumbnail_path, mimetype=mime_t)
+                    thumb_media = MediaFileUpload(actual_thumb_path, mimetype=mime_t)
                     service.thumbnails().set(videoId=video_id, media_body=thumb_media).execute()
                     thumbnail_uploaded = True
                     thumbnail_note = "정상 등록 완료"
@@ -364,6 +383,13 @@ class YouTubeUploader:
                 except Exception as te:
                     thumbnail_note = str(te)
                     print(f"[!] YouTube 썸네일 등록 시도 {attempt}회 실패: {te}")
+
+            # 임시 최적화 파일 정리
+            if temp_thumb_jpg and os.path.exists(temp_thumb_jpg):
+                try:
+                    os.remove(temp_thumb_jpg)
+                except Exception:
+                    pass
 
         return {
             "success": True,

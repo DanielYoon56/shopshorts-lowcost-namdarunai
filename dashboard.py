@@ -1771,16 +1771,22 @@ with tab_publish:
                 thumb_sig = f"{new_thumb_file.name}_{new_thumb_file.size}_{selected_folder}"
                 if st.session_state.get(f"last_thumb_upload_sig_{selected_folder}") != thumb_sig:
                     uploaded_bytes = new_thumb_file.getbuffer()
-                    ext = os.path.splitext(new_thumb_file.name)[1].lower() or ".png"
-                    save_thumb_p = os.path.join(current_project_path, f"섬네일{ext}")
-                    with open(save_thumb_p, "wb") as tf:
-                        tf.write(uploaded_bytes)
-                    os.makedirs(os.path.join(current_project_path, "assets"), exist_ok=True)
-                    with open(os.path.join(current_project_path, "assets", f"custom_thumbnail{ext}"), "wb") as tf:
-                        tf.write(uploaded_bytes)
+                    # 고화질 JPEG (YouTube 2MB 제한 자동 준수)로 최적화 저장
+                    try:
+                        from PIL import Image
+                        import io
+                        with Image.open(io.BytesIO(uploaded_bytes)) as im:
+                            rgb_im = im.convert("RGB")
+                            save_jpg_p = os.path.join(current_project_path, "섬네일.jpg")
+                            rgb_im.save(save_jpg_p, "JPEG", quality=92, optimize=True)
+                            os.makedirs(os.path.join(current_project_path, "assets"), exist_ok=True)
+                            rgb_im.save(os.path.join(current_project_path, "assets", "custom_thumbnail.jpg"), "JPEG", quality=92, optimize=True)
+                    except Exception:
+                        with open(os.path.join(current_project_path, "섬네일.jpg"), "wb") as tf:
+                            tf.write(uploaded_bytes)
 
                     st.session_state[f"last_thumb_upload_sig_{selected_folder}"] = thumb_sig
-                    target_label = f"✨ 직접 등록한 맞춤 썸네일 (섬네일{ext})"
+                    target_label = "✨ 직접 등록한 맞춤 썸네일 (섬네일.jpg)"
                     st.session_state[f"selected_thumb_label_{selected_folder}"] = target_label
                     st.success("🎉 새 맞춤 썸네일 등록 완료! 대표 썸네일로 자동 지정되었습니다.")
 
@@ -1789,14 +1795,14 @@ with tab_publish:
             
             # 1순위: 맞춤 썸네일 (루트 또는 assets)
             custom_thumb_candidates = [
-                os.path.join(current_project_path, "섬네일.png"),
                 os.path.join(current_project_path, "섬네일.jpg"),
-                os.path.join(current_project_path, "thumbnail.png"),
-                os.path.join(current_project_path, "thumbnail.jpg"),
-                os.path.join(current_project_path, "assets", "custom_thumbnail.png"),
+                os.path.join(current_project_path, "섬네일.png"),
                 os.path.join(current_project_path, "assets", "custom_thumbnail.jpg"),
-                os.path.join(current_project_path, "cover.png"),
+                os.path.join(current_project_path, "assets", "custom_thumbnail.png"),
+                os.path.join(current_project_path, "thumbnail.jpg"),
+                os.path.join(current_project_path, "thumbnail.png"),
                 os.path.join(current_project_path, "cover.jpg"),
+                os.path.join(current_project_path, "cover.png"),
             ]
             for p in custom_thumb_candidates:
                 if os.path.exists(p):

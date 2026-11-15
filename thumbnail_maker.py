@@ -239,17 +239,22 @@ def generate_shorts_thumbnail(
         )
         cur_y += line_h + 24
 
-    # 5. 최종 이미지 저장 (루트 섬네일.png 및 assets/custom_thumbnail.png)
+    # 5. 최종 이미지 저장 (YouTube 2MB 규격 완벽 호환 고화질 JPEG 및 PNG 동시 저장)
     final_rgb = bg.convert("RGB")
-    out_root = os.path.join(project_folder, "섬네일.png")
-    final_rgb.save(out_root, "PNG", quality=95)
+    out_root = os.path.join(project_folder, "섬네일.jpg")
+    final_rgb.save(out_root, "JPEG", quality=92, optimize=True)
+
+    out_png = os.path.join(project_folder, "섬네일.png")
+    final_rgb.save(out_png, "PNG", optimize=True)
 
     assets_dir = os.path.join(project_folder, "assets")
     os.makedirs(assets_dir, exist_ok=True)
-    out_assets = os.path.join(assets_dir, "custom_thumbnail.png")
-    final_rgb.save(out_assets, "PNG", quality=95)
+    out_assets_jpg = os.path.join(assets_dir, "custom_thumbnail.jpg")
+    final_rgb.save(out_assets_jpg, "JPEG", quality=92, optimize=True)
+    out_assets_png = os.path.join(assets_dir, "custom_thumbnail.png")
+    final_rgb.save(out_assets_png, "PNG", optimize=True)
 
-    print(f"[+] 썸네일 자동 생성 완료: {out_root}")
+    print(f"[+] 썸네일 자동 생성 완료: {out_root} ({os.path.getsize(out_root):,} bytes)")
     return out_root
 
 
