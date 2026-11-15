@@ -626,16 +626,20 @@ with st.sidebar:
     st.markdown('<div class="aistudio-section-header">STORY & SCRIPT STYLE</div>', unsafe_allow_html=True)
 
     # 1) 대본 스타일
+    style_options = [
+        "💡 문제공감 & 해결형 (일상 공감, 기본 추천)",
+        "📖 비하인드 썰 & 스토리텔링형 (도파민/썰)",
+        "🔍 내돈내산 솔직 리뷰형 (3개월 찐후기)",
+        "⚡ 초고속 결과선공개형 (3초 즉시 증명)",
+        "🚨 충격 경고 & 반전형 (호기심/반전 솔루션)"
+    ]
+    cur_style_val = st.session_state.get("sidebar_script_style_select", style_options[0])
+    cur_style_idx = style_options.index(cur_style_val) if cur_style_val in style_options else 0
+
     sidebar_script_style_choice = st.selectbox(
         "사용할 대본 스토리텔링 스타일",
-        options=[
-            "💡 문제공감 & 해결형 (일상 공감, 기본 추천)",
-            "📖 비하인드 썰 & 스토리텔링형 (도파민/썰)",
-            "🔍 내돈내산 솔직 리뷰형 (3개월 찐후기)",
-            "⚡ 초고속 결과선공개형 (3초 즉시 증명)",
-            "🚨 충격 경고 & 반전형 (호기심/반전 솔루션)"
-        ],
-        index=0,
+        options=style_options,
+        index=cur_style_idx,
         key="sidebar_script_style_select",
         label_visibility="collapsed",
         help="• 문제공감: 일상 속 불편함에 깊이 공감하고 제품 해결책 제시\n• 비하인드 썰: 창업자 비화, 품절 대란 등 도파민 넘치는 썰로 몰입\n• 내돈내산 리뷰: 찐 소비자의 솔직 담백한 리얼 리뷰\n• 초고속 결과선공개: 3초 만에 결과를 선공개하고 핵심 기능 속도감 있게 전달\n• 충격 경고: 강렬한 경고성 후킹 후 상식을 깨는 반전 솔루션"
@@ -700,6 +704,7 @@ with st.sidebar:
     st.markdown('<div class="aistudio-section-header">ENVIRONMENT STATUS</div>', unsafe_allow_html=True)
     
     openai_key = os.getenv("OPENAI_API_KEY")
+    g_key = os.getenv("GEMINI_API_KEY")
     oa_ok = bool(openai_key and len(openai_key) > 5)
     oa_dot = "dot-online" if oa_ok else "dot-offline"
     oa_txt = "OpenAI 연결" if oa_ok else "OpenAI 누락"
