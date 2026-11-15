@@ -1717,43 +1717,77 @@ with tab_publish:
             
             # 썸네일 후보군 자동 탐색
             thumb_cands = []
-            for name in ["섬네일.png", "섬네일.jpg", "thumbnail.png", "thumbnail.jpg", "cover.png", "cover.jpg", "custom_thumbnail.jpg", "custom_thumbnail.png"]:
-                p = os.path.join(current_project_path, name)
+            
+            # 1순위: 직접 등록한 맞춤 썸네일 (루트 또는 assets)
+            custom_thumb_candidates = [
+                os.path.join(current_project_path, "섬네일.png"),
+                os.path.join(current_project_path, "섬네일.jpg"),
+                os.path.join(current_project_path, "thumbnail.png"),
+                os.path.join(current_project_path, "thumbnail.jpg"),
+                os.path.join(current_project_path, "assets", "custom_thumbnail.png"),
+                os.path.join(current_project_path, "assets", "custom_thumbnail.jpg"),
+                os.path.join(current_project_path, "cover.png"),
+                os.path.join(current_project_path, "cover.jpg"),
+            ]
+            for p in custom_thumb_candidates:
                 if os.path.exists(p):
-                    thumb_cands.append((f"맞춤 썸네일 ({name})", p))
+                    thumb_cands.append((f"✨ 직접 등록한 맞춤 썸네일 ({os.path.basename(p)})", p))
+                    break
 
+            # 2순위: 6컷 AI 생성 이미지 (assets/cut1~6_9_16.jpg)
             assets_dir = os.path.join(current_project_path, "assets")
             if os.path.exists(assets_dir):
                 for i in range(1, 7):
                     p = os.path.join(assets_dir, f"cut{i}_9_16.jpg")
                     if os.path.exists(p):
-                        thumb_cands.append((f"컷 {i} 이미지 (assets/cut{i}_9_16.jpg)", p))
+                        thumb_cands.append((f"컷 {i} 이미지 (cut{i}_9_16.jpg)", p))
 
+            # 3순위: 기타 썸네일 관련 이미지
             for p in glob.glob(os.path.join(current_project_path, "*섬네일*.png")) + glob.glob(os.path.join(current_project_path, "*섬네일*.jpg")):
                 if not any(p == c[1] for c in thumb_cands):
-                    thumb_cands.append((f"기타 ({os.path.basename(p)})", p))
+                    thumb_cands.append((f"기타 이미지 ({os.path.basename(p)})", p))
 
             chosen_thumb_path = None
             if thumb_cands:
                 cand_labels = [c[0] for c in thumb_cands]
-                sel_cand_label = st.selectbox("등록할 썸네일 선택", cand_labels, index=0, key=f"thumb_select_{selected_folder}")
-                chosen_thumb_path = next(c[1] for c in thumb_cands if c[0] == sel_cand_label)
+                current_sel = st.session_state.get(f"thumb_select_{selected_folder}")
+                default_idx = cand_labels.index(current_sel) if (current_sel and current_sel in cand_labels) else 0
+
+                sel_cand_label = st.selectbox(
+                    "등록할 썸네일 선택",
+                    cand_labels,
+                    index=default_idx,
+                    key=f"thumb_select_{selected_folder}"
+                )
+                chosen_thumb_path = next((c[1] for c in thumb_cands if c[0] == sel_cand_label), thumb_cands[0][1])
                 if chosen_thumb_path and os.path.exists(chosen_thumb_path):
                     st.image(chosen_thumb_path, caption=f"선택된 썸네일: {os.path.basename(chosen_thumb_path)}", width=220)
             else:
-                st.info("프로젝트에 등록된 썸네일 이미지가 없습니다. 아래에서 직접 업로드할 수 있습니다.")
+                st.info("프로젝트에 등록된 썸네일 이미지가 없습니다. 아래에서 직접 업로드해 주세요.")
 
             # 맞춤 썸네일 직접 파일 업로드
-            new_thumb_file = st.file_uploader("➕ 새 썸네일 이미지 직접 등록", type=["jpg", "jpeg", "png", "webp"], key=f"custom_thumb_upload_{selected_folder}")
-            if new_thumb_file:
-                ext = os.path.splitext(new_thumb_file.name)[1].lower() or ".jpg"
-                custom_save_path = os.path.join(current_project_path, "assets", f"custom_thumbnail{ext}")
-                os.makedirs(os.path.dirname(custom_save_path), exist_ok=True)
-                with open(custom_save_path, "wb") as tf:
-                    tf.write(new_thumb_file.getbuffer())
-                chosen_thumb_path = custom_save_path
-                st.success("새 맞춤 썸네일 등록 완료!")
-                st.image(chosen_thumb_path, caption="새로 업로드된 썸네일", width=220)
+            new_thumb_file = st.file_uploader(
+                "➕ 새 썸네일 이미지 직접 등록 (JPG/PNG)",
+                type=["jpg", "jpeg", "png", "webp"],
+                key=f"custom_thumb_upload_{selected_folder}"
+            )
+            if new_thumb_file is not None:
+                # 업로드된 파일 바이트 저장
+                uploaded_bytes = new_thumb_file.getbuffer()
+                ext = os.path.splitext(new_thumb_file.name)[1].lower() or ".png"
+                save_thumb_p = os.path.join(current_project_path, f"섬네일{ext}")
+                with open(save_thumb_p, "wb") as tf:
+                    tf.write(uploaded_bytes)
+                # assets 폴더에도 동시 보관
+                os.makedirs(os.path.join(current_project_path, "assets"), exist_ok=True)
+                with open(os.path.join(current_project_path, "assets", f"custom_thumbnail{ext}"), "wb") as tf:
+                    tf.write(uploaded_bytes)
+                
+                # 세션 상태 갱신하여 드롭다운이 즉시 이 이미지를 선택하도록 함
+                target_label = f"✨ 직접 등록한 맞춤 썸네일 (섬네일{ext})"
+                st.session_state[f"thumb_select_{selected_folder}"] = target_label
+                st.success("🎉 새 맞춤 썸네일 등록 완료! 대표 썸네일로 자동 지정되었습니다.")
+                st.rerun()
 
         with col_v_form:
             c_header, c_reload = st.columns([1.6, 1.4])
