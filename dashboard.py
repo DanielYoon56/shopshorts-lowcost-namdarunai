@@ -593,7 +593,6 @@ with st.sidebar:
             "작업 폴더",
             folders,
             index=default_idx,
-            key="main_project_selector",
             label_visibility="collapsed",
             help="outputs 디렉토리 내의 프로젝트 폴더입니다."
         )
@@ -614,7 +613,6 @@ with st.sidebar:
                 os.makedirs(os.path.join(new_path, "assets"), exist_ok=True)
                 os.makedirs(os.path.join(new_path, "images"), exist_ok=True)
                 st.session_state["selected_project_folder"] = clean_name
-                st.session_state["main_project_selector"] = clean_name
                 st.session_state["_last_loaded_project"] = clean_name
                 st.session_state.pop("coupang_ingested", None)
                 st.session_state.pop("last_uploaded_capcut_sig", None)
