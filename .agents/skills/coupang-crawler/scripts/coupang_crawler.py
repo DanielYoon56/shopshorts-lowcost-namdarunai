@@ -438,14 +438,34 @@ def parse_product_html(html: str, source_url: str = "") -> dict:
     )
     seller = _parse_seller(dom)
 
-    # 대표 이미지: JSON-LD + img.thumbnail(썸네일 스트립) + .product-image 안 이미지 + og:image
+    # 대표 이미지: og:image 최우선 + JSON-LD + 메인 상품 이미지(.prod-image__detail, .prod-image__list)
+    gallery_raw = []
+
+    # 1) og:image (쿠팡이 해당 상품의 대표 썸네일로 공식 지정한 메타 태그 -> 1순위 보장)
+    og_img = normalize_image_url(p.meta.get("og:image", ""))
+    if og_img and _is_product_image(og_img):
+        gallery_raw.append(og_img)
+
+    # 2) JSON-LD 내의 상품 이미지
     ld_images = ld.get("image", [])
     ld_images = [ld_images] if isinstance(ld_images, str) else (ld_images if isinstance(ld_images, list) else [])
-    gallery_raw = [normalize_image_url(u) for u in ld_images if isinstance(u, str)]
+    for u in ld_images:
+        if isinstance(u, str):
+            nu = normalize_image_url(u)
+            if nu and _is_product_image(nu):
+                gallery_raw.append(nu)
+
+    # 3) 본문 갤러리 이미지 (단, 최근 본 상품, 추천 상품, 다른 판매자 등 사이드바/캐러셀 위젯은 제외)
+    exclude_keywords = ("recent", "recommend", "carousel", "related", "other-seller", "wing", "side", "banner", "similar")
     for attrs, stack in p.images:
-        if "thumbnail" in attrs.get("class", "").split() or _in(stack, ".product-image") or _in(stack, ".prod-image"):
-            gallery_raw.append(normalize_image_url(_image_src(attrs)))
-    gallery_raw.append(normalize_image_url(p.meta.get("og:image", "")))
+        # 제외 대상 위젯 내부 이미지 스킵
+        if any(any(ex in str(cls_name).lower() for ex in exclude_keywords) for cls_name in stack):
+            continue
+        if "thumbnail" in attrs.get("class", "").split() or _in(stack, ".product-image") or _in(stack, ".prod-image") or _in(stack, ".prod-image__detail") or _in(stack, ".prod-image__list"):
+            src = normalize_image_url(_image_src(attrs))
+            if src and _is_product_image(src):
+                gallery_raw.append(src)
+
     gallery = dedupe([_gallery_size(u) for u in gallery_raw if _is_product_image(u)])
 
     detail_raw = [
