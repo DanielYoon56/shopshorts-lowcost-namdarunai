@@ -343,18 +343,27 @@ class YouTubeUploader:
 
         video_id = response.get("id")
 
-        # 썸네일 업로드 처리
+        # 썸네일 업로드 처리 (유튜브 인코딩 등록 대기 및 3회 재시도)
         thumbnail_uploaded = False
         thumbnail_note = ""
         if thumbnail_path and os.path.exists(thumbnail_path):
-            try:
-                mime_t = "image/png" if thumbnail_path.lower().endswith(".png") else "image/jpeg"
-                thumb_media = MediaFileUpload(thumbnail_path, mimetype=mime_t)
-                service.thumbnails().set(videoId=video_id, media_body=thumb_media).execute()
-                thumbnail_uploaded = True
-            except Exception as te:
-                print(f"[!] YouTube 썸네일 등록 실패: {te}")
-                thumbnail_note = str(te)
+            if progress_callback:
+                progress_callback(0.96)
+            mime_t = "image/png" if thumbnail_path.lower().endswith(".png") else "image/jpeg"
+            
+            # 유튜브 백엔드에서 비디오 ID 생성 직후 썸네일을 즉시 붙이면 거부되거나 덮어쓰여질 수 있으므로 재시도 처리
+            for attempt in range(1, 4):
+                try:
+                    time.sleep(attempt * 2)  # 2초, 4초, 6초 지연 후 시도
+                    thumb_media = MediaFileUpload(thumbnail_path, mimetype=mime_t)
+                    service.thumbnails().set(videoId=video_id, media_body=thumb_media).execute()
+                    thumbnail_uploaded = True
+                    thumbnail_note = "정상 등록 완료"
+                    print(f"[+] YouTube 맞춤 썸네일 등록 성공! (시도 {attempt}회)")
+                    break
+                except Exception as te:
+                    thumbnail_note = str(te)
+                    print(f"[!] YouTube 썸네일 등록 시도 {attempt}회 실패: {te}")
 
         return {
             "success": True,

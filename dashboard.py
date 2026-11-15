@@ -1928,9 +1928,9 @@ with tab_publish:
                         st.success(f"🎉 YouTube Shorts 업로드 성공! [{res['title']}]")
                         st.markdown(f"👉 **쇼츠 영상 링크**: [{res['url']}]({res['url']})")
                         if res.get("thumbnail_uploaded"):
-                            st.info("🖼️ 유튜브 쇼츠 맞춤 썸네일도 정상 등록되었습니다!")
+                            st.info("🖼️ 유튜브 맞춤 썸네일 등록 완료! (PC 및 채널 검색 목록에 반영됩니다)")
                         elif res.get("thumbnail_note"):
-                            st.caption(f"ℹ️ 썸네일 안내: 채널 맞춤 썸네일 권한(전화번호 인증) 필요로 인해 영상만 먼저 등록되었습니다.")
+                            st.warning(f"⚠️ 썸네일 등록 응답: {res['thumbnail_note']}")
                         st.balloons()
                     except Exception as e:
                         yt_prog.empty()
