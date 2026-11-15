@@ -1752,7 +1752,7 @@ with tab_publish:
             st.markdown("---")
             st.markdown("#### 🖼️ 대표 썸네일 (커버 이미지)")
             
-            # 1클릭 썸네일 자동 합성 버튼
+            # A. 1클릭 썸네일 자동 합성 버튼
             if st.button("🪄 1번 컷 + 카피로 9:16 맞춤 썸네일 자동 생성", key=f"auto_gen_thumb_{selected_folder}", use_container_width=True):
                 with st.spinner("AI 썸네일 이미지 합성 중..."):
                     from thumbnail_maker import generate_shorts_thumbnail
@@ -1765,10 +1765,34 @@ with tab_publish:
                     else:
                         st.error("썸네일 생성 실패: 배경으로 쓸 이미지가 없습니다. 먼저 이미지를 생성하거나 업로드해주세요.")
 
-            # 썸네일 후보군 자동 탐색
+            # B. 맞춤 썸네일 직접 파일 업로드 (드롭다운 이전에 처리하여 즉시 1순위 후보로 반영)
+            new_thumb_file = st.file_uploader(
+                "➕ 새 썸네일 이미지 직접 등록 (JPG/PNG)",
+                type=["jpg", "jpeg", "png", "webp"],
+                key=f"custom_thumb_upload_{selected_folder}"
+            )
+            if new_thumb_file is not None:
+                thumb_sig = f"{new_thumb_file.name}_{new_thumb_file.size}_{selected_folder}"
+                if st.session_state.get(f"last_thumb_upload_sig_{selected_folder}") != thumb_sig:
+                    uploaded_bytes = new_thumb_file.getbuffer()
+                    ext = os.path.splitext(new_thumb_file.name)[1].lower() or ".png"
+                    save_thumb_p = os.path.join(current_project_path, f"섬네일{ext}")
+                    with open(save_thumb_p, "wb") as tf:
+                        tf.write(uploaded_bytes)
+                    os.makedirs(os.path.join(current_project_path, "assets"), exist_ok=True)
+                    with open(os.path.join(current_project_path, "assets", f"custom_thumbnail{ext}"), "wb") as tf:
+                        tf.write(uploaded_bytes)
+
+                    st.session_state[f"last_thumb_upload_sig_{selected_folder}"] = thumb_sig
+                    target_label = f"✨ 직접 등록한 맞춤 썸네일 (섬네일{ext})"
+                    st.session_state[f"selected_thumb_label_{selected_folder}"] = target_label
+                    st.success("🎉 새 맞춤 썸네일 등록 완료! 대표 썸네일로 자동 지정되었습니다.")
+                    st.rerun()
+
+            # C. 썸네일 후보군 자동 탐색
             thumb_cands = []
             
-            # 1순위: 직접 등록한 맞춤 썸네일 (루트 또는 assets)
+            # 1순위: 맞춤 썸네일 (루트 또는 assets)
             custom_thumb_candidates = [
                 os.path.join(current_project_path, "섬네일.png"),
                 os.path.join(current_project_path, "섬네일.jpg"),
@@ -1813,31 +1837,7 @@ with tab_publish:
                 if chosen_thumb_path and os.path.exists(chosen_thumb_path):
                     st.image(chosen_thumb_path, caption=f"선택된 썸네일: {os.path.basename(chosen_thumb_path)}", width=220)
             else:
-                st.info("프로젝트에 등록된 썸네일 이미지가 없습니다. 아래에서 직접 업로드해 주세요.")
-
-            # 맞춤 썸네일 직접 파일 업로드
-            new_thumb_file = st.file_uploader(
-                "➕ 새 썸네일 이미지 직접 등록 (JPG/PNG)",
-                type=["jpg", "jpeg", "png", "webp"],
-                key=f"custom_thumb_upload_{selected_folder}"
-            )
-            if new_thumb_file is not None:
-                # 업로드된 파일 바이트 저장
-                uploaded_bytes = new_thumb_file.getbuffer()
-                ext = os.path.splitext(new_thumb_file.name)[1].lower() or ".png"
-                save_thumb_p = os.path.join(current_project_path, f"섬네일{ext}")
-                with open(save_thumb_p, "wb") as tf:
-                    tf.write(uploaded_bytes)
-                # assets 폴더에도 동시 보관
-                os.makedirs(os.path.join(current_project_path, "assets"), exist_ok=True)
-                with open(os.path.join(current_project_path, "assets", f"custom_thumbnail{ext}"), "wb") as tf:
-                    tf.write(uploaded_bytes)
-                
-                # 세션 상태 갱신하여 드롭다운이 즉시 이 이미지를 선택하도록 함
-                target_label = f"✨ 직접 등록한 맞춤 썸네일 (섬네일{ext})"
-                st.session_state[f"selected_thumb_label_{selected_folder}"] = target_label
-                st.success("🎉 새 맞춤 썸네일 등록 완료! 대표 썸네일로 자동 지정되었습니다.")
-                st.rerun()
+                st.info("프로젝트에 등록된 썸네일 이미지가 없습니다. 위에서 자동 생성하거나 이미지를 업로드해 주세요.")
 
         with col_v_form:
             c_header, c_reload = st.columns([1.6, 1.4])
