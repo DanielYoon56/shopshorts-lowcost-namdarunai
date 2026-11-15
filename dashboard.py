@@ -1725,6 +1725,49 @@ with tab_publish:
             file_mb = round(os.path.getsize(output_video_path) / (1024 * 1024), 2)
             st.caption(f"파일명: `output.mp4` ({file_mb} MB) | 해상도: 1080x1920 (9:16)")
 
+            st.markdown("---")
+            st.markdown("#### 🖼️ 대표 썸네일 (커버 이미지)")
+            
+            # 썸네일 후보군 자동 탐색
+            thumb_cands = []
+            for name in ["섬네일.png", "섬네일.jpg", "thumbnail.png", "thumbnail.jpg", "cover.png", "cover.jpg", "custom_thumbnail.jpg", "custom_thumbnail.png"]:
+                p = os.path.join(current_project_path, name)
+                if os.path.exists(p):
+                    thumb_cands.append((f"맞춤 썸네일 ({name})", p))
+
+            assets_dir = os.path.join(current_project_path, "assets")
+            if os.path.exists(assets_dir):
+                for i in range(1, 7):
+                    p = os.path.join(assets_dir, f"cut{i}_9_16.jpg")
+                    if os.path.exists(p):
+                        thumb_cands.append((f"컷 {i} 이미지 (assets/cut{i}_9_16.jpg)", p))
+
+            for p in glob.glob(os.path.join(current_project_path, "*섬네일*.png")) + glob.glob(os.path.join(current_project_path, "*섬네일*.jpg")):
+                if not any(p == c[1] for c in thumb_cands):
+                    thumb_cands.append((f"기타 ({os.path.basename(p)})", p))
+
+            chosen_thumb_path = None
+            if thumb_cands:
+                cand_labels = [c[0] for c in thumb_cands]
+                sel_cand_label = st.selectbox("등록할 썸네일 선택", cand_labels, index=0, key=f"thumb_select_{selected_folder}")
+                chosen_thumb_path = next(c[1] for c in thumb_cands if c[0] == sel_cand_label)
+                if chosen_thumb_path and os.path.exists(chosen_thumb_path):
+                    st.image(chosen_thumb_path, caption=f"선택된 썸네일: {os.path.basename(chosen_thumb_path)}", width=220)
+            else:
+                st.info("프로젝트에 등록된 썸네일 이미지가 없습니다. 아래에서 직접 업로드할 수 있습니다.")
+
+            # 맞춤 썸네일 직접 파일 업로드
+            new_thumb_file = st.file_uploader("➕ 새 썸네일 이미지 직접 등록", type=["jpg", "jpeg", "png", "webp"], key=f"custom_thumb_upload_{selected_folder}")
+            if new_thumb_file:
+                ext = os.path.splitext(new_thumb_file.name)[1].lower() or ".jpg"
+                custom_save_path = os.path.join(current_project_path, "assets", f"custom_thumbnail{ext}")
+                os.makedirs(os.path.dirname(custom_save_path), exist_ok=True)
+                with open(custom_save_path, "wb") as tf:
+                    tf.write(new_thumb_file.getbuffer())
+                chosen_thumb_path = custom_save_path
+                st.success("새 맞춤 썸네일 등록 완료!")
+                st.image(chosen_thumb_path, caption="새로 업로드된 썸네일", width=220)
+
         with col_v_form:
             c_header, c_reload = st.columns([1.6, 1.4])
             with c_header:
@@ -1826,6 +1869,7 @@ with tab_publish:
 
             with col_yt_opt2:
                 auto_shorts_tag = st.checkbox("제목에 #Shorts 자동 태그", value=True)
+                yt_thumb_opt = st.checkbox("유튜브 맞춤 썸네일 동시 등록", value=bool(chosen_thumb_path), help="왼쪽에서 선택한 썸네일을 유튜브 영상의 대표 썸네일로 등록합니다. (채널 전화번호 인증 필요)")
 
             yt_upload_btn = st.button("▶️ YouTube Shorts 즉시 업로드", type="primary", use_container_width=True, key=f"yt_upload_btn_{selected_folder}")
             if yt_upload_btn:
@@ -1847,18 +1891,25 @@ with tab_publish:
                         yt_full_desc = f"{final_desc}\n\n{final_tags}"
                         tag_list = [t.strip("#").strip() for t in final_tags.split() if t.strip()]
 
+                        thumb_for_yt = chosen_thumb_path if yt_thumb_opt and chosen_thumb_path and os.path.exists(chosen_thumb_path) else None
+
                         res = youtube_uploader.upload_shorts(
                             video_path=output_video_path,
                             title=upload_t,
                             description=yt_full_desc,
                             tags=tag_list,
                             privacy_status=privacy_code,
+                            thumbnail_path=thumb_for_yt,
                             progress_callback=on_yt_progress
                         )
                         yt_prog.progress(1.0)
                         yt_status.empty()
                         st.success(f"🎉 YouTube Shorts 업로드 성공! [{res['title']}]")
                         st.markdown(f"👉 **쇼츠 영상 링크**: [{res['url']}]({res['url']})")
+                        if res.get("thumbnail_uploaded"):
+                            st.info("🖼️ 유튜브 쇼츠 맞춤 썸네일도 정상 등록되었습니다!")
+                        elif res.get("thumbnail_note"):
+                            st.caption(f"ℹ️ 썸네일 안내: 채널 맞춤 썸네일 권한(전화번호 인증) 필요로 인해 영상만 먼저 등록되었습니다.")
                         st.balloons()
                     except Exception as e:
                         yt_prog.empty()
@@ -1910,10 +1961,8 @@ with tab_publish:
 
             ig_2fa = st.text_input("2단계 인증 코드 (2FA 사용 시에만 입력)", key=f"ig_2fa_input_{selected_folder}", placeholder="6자리 SMS/OTP 코드 (선택)")
 
-            # 커버 이미지 선택 (assets/cut1_9_16.jpg)
-            default_cover = os.path.join(current_project_path, "assets", "cut1_9_16.jpg")
-            has_cover = os.path.exists(default_cover)
-            ig_cover_opt = st.checkbox("첫 컷(Cut 1)을 릴스 썸네일 커버로 지정", value=has_cover)
+            # 커버 이미지 선택 (왼쪽 썸네일과 연동)
+            ig_cover_opt = st.checkbox("인스타그램 릴스 대표 커버 이미지로 지정", value=bool(chosen_thumb_path))
 
             ig_upload_btn = st.button("▶️ Instagram Reels 즉시 업로드", type="primary", use_container_width=True, key=f"ig_upload_btn_{selected_folder}")
             if ig_upload_btn:
@@ -1928,7 +1977,7 @@ with tab_publish:
                             ig_prog.progress(min(1.0, float(p)))
                             ig_status.markdown(f"🔄 {msg}")
 
-                        cover_to_use = default_cover if (ig_cover_opt and has_cover) else None
+                        cover_to_use = chosen_thumb_path if (ig_cover_opt and chosen_thumb_path and os.path.exists(chosen_thumb_path)) else None
 
                         res = instagram_uploader.upload_reels(
                             video_path=output_video_path,

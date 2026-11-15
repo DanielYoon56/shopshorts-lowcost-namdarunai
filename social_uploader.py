@@ -290,10 +290,11 @@ class YouTubeUploader:
         description: str = "",
         tags: list = None,
         privacy_status: str = "public",
+        thumbnail_path: str = None,
         progress_callback=None
     ) -> dict:
         """
-        유튜브 쇼츠 영상 업로드
+        유튜브 쇼츠 영상 업로드 (맞춤 썸네일 지원)
         privacy_status: 'public', 'unlisted', 'private'
         """
         from googleapiclient.http import MediaFileUpload
@@ -341,12 +342,28 @@ class YouTubeUploader:
                 progress_callback(progress)
 
         video_id = response.get("id")
+
+        # 썸네일 업로드 처리
+        thumbnail_uploaded = False
+        thumbnail_note = ""
+        if thumbnail_path and os.path.exists(thumbnail_path):
+            try:
+                mime_t = "image/png" if thumbnail_path.lower().endswith(".png") else "image/jpeg"
+                thumb_media = MediaFileUpload(thumbnail_path, mimetype=mime_t)
+                service.thumbnails().set(videoId=video_id, media_body=thumb_media).execute()
+                thumbnail_uploaded = True
+            except Exception as te:
+                print(f"[!] YouTube 썸네일 등록 실패: {te}")
+                thumbnail_note = str(te)
+
         return {
             "success": True,
             "video_id": video_id,
             "url": f"https://www.youtube.com/shorts/{video_id}",
             "title": upload_title,
-            "privacy": privacy_status
+            "privacy": privacy_status,
+            "thumbnail_uploaded": thumbnail_uploaded,
+            "thumbnail_note": thumbnail_note
         }
 
 
