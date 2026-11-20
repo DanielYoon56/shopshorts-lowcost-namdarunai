@@ -79,6 +79,101 @@ def generate_via_gemini_imagen(prompt, output_path, aspect_ratio="9:16", ref_ima
             
     raise RuntimeError("Gemini 이미지 모델로부터 이미지를 수신하지 못했습니다.")
 
+
+def generate_via_huggingface(prompt, output_path, width=1024, height=576, model="black-forest-labs/FLUX.1-schnell"):
+    """
+    Hugging Face Serverless Inference API를 통한 FLUX.1 이미지 무료 생성 (HF_TOKEN 필요)
+    - 상업적 이용 가능 (Apache 2.0 라이선스)
+    - 무료 계정의 Serverless Inference API 호출
+    """
+    hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
+    if not hf_token:
+        raise ValueError("HF_TOKEN이 .env에 설정되지 않았습니다. https://huggingface.co/settings/tokens 에서 Read 토큰을 발급받아 등록하세요.")
+
+    api_url = f"https://api-inference.huggingface.co/models/{model}"
+    headers = {
+        "Authorization": f"Bearer {hf_token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "width": width,
+            "height": height
+        }
+    }
+
+    for attempt in range(1, 4):
+        try:
+            res = requests.post(api_url, headers=headers, json=payload, timeout=60)
+            if res.status_code == 200:
+                with open(output_path, "wb") as f:
+                    f.write(res.content)
+                print(f"[+] [Hugging Face FLUX] 이미지 생성 성공 -> {output_path}")
+                return True
+            elif res.status_code == 503:
+                wait_time = 12
+                try:
+                    data = res.json()
+                    wait_time = int(data.get("estimated_time", 12))
+                except Exception:
+                    pass
+                print(f"[*] 모델 로딩 중... {wait_time}초 대기 후 재시도 ({attempt}/3)")
+                time.sleep(wait_time)
+            else:
+                print(f"[!] Hugging Face API 응답 ({res.status_code}): {res.text}")
+                time.sleep(2)
+        except Exception as e:
+            print(f"[!] Hugging Face 요청 실패 ({attempt}/3): {e}")
+            time.sleep(2)
+
+    raise RuntimeError("Hugging Face FLUX 이미지 생성 실패")
+
+
+def generate_via_siliconflow(prompt, output_path, image_size="1024x576", model="black-forest-labs/FLUX.1-schnell"):
+    """
+    SiliconFlow API를 통한 FLUX.1 이미지 고속 생성 (SILICONFLOW_API_KEY 필요)
+    - 가입 시 2천만 토큰 무료 제공
+    """
+    sf_key = os.getenv("SILICONFLOW_API_KEY")
+    if not sf_key:
+        raise ValueError("SILICONFLOW_API_KEY가 .env에 설정되지 않았습니다.")
+
+    url = "https://api.siliconflow.cn/v1/images/generations"
+    headers = {
+        "Authorization": f"Bearer {sf_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "image_size": image_size,
+        "batch_size": 1,
+        "num_inference_steps": 4
+    }
+
+    for attempt in range(1, 4):
+        try:
+            res = requests.post(url, headers=headers, json=payload, timeout=45)
+            if res.status_code == 200:
+                data = res.json()
+                img_url = data["images"][0]["url"]
+                img_res = requests.get(img_url, timeout=30)
+                if img_res.status_code == 200:
+                    with open(output_path, "wb") as f:
+                        f.write(img_res.content)
+                    print(f"[+] [SiliconFlow FLUX] 이미지 생성 성공 -> {output_path}")
+                    return True
+            else:
+                print(f"[!] SiliconFlow API 응답 ({res.status_code}): {res.text}")
+                time.sleep(2)
+        except Exception as e:
+            print(f"[!] SiliconFlow 요청 실패 ({attempt}/3): {e}")
+            time.sleep(2)
+
+    raise RuntimeError("SiliconFlow FLUX 이미지 생성 실패")
+
+
 def run_crop_script(folder_path, is_faction=False):
     """생성된 종합 에셋 시트를 9:16 개별 에셋으로 스마트 분할"""
     crop_script = os.path.join(
