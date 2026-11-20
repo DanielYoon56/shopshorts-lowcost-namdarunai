@@ -38,8 +38,39 @@ def _crop_and_resize_9_16(image: Image.Image, target_w=1080, target_h=1920) -> I
     return image.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
 
+def clean_thumbnail_line(line: str) -> str:
+    """
+    썸네일에 불필요한 메타 라벨 및 마크다운 기호 완전 제거:
+    예: '- **메인 카피:** 핫팩 버리고 갈아탄 이유' -> '핫팩 버리고 갈아탄 이유'
+    예: '- **서브 카피:** 켜자마자 양면 발열 (10,000mAh)' -> '켜자마자 양면 발열 (10,000mAh)'
+    예: '1. 헤드라인: 3초만에 시원해지는 비밀' -> '3초만에 시원해지는 비밀'
+    """
+    if not line:
+        return ""
+    text = line.strip()
+
+    # 1. 마크다운 리스트 불릿 및 번호 제거 (-, *, •, 1., 2) 등)
+    text = re.sub(r'^[\s\-\*•\d\.\)\(\]]+', '', text).strip()
+
+    # 2. 볼드 마크다운 분리 (**메인 카피:** -> 메인 카피:)
+    text = re.sub(r'\*\*', '', text)
+    text = re.sub(r'__', '', text)
+
+    # 3. 불필요한 레이블 접두사 제거 (메인카피, 서브카피, 헤드라인, 옵션 등)
+    prefix_pattern = r'^(?:메인\s*카피|서브\s*카피|메인|서브|헤드라인|타이틀|후킹\s*카피|썸네일\s*카피|추천\s*카피|옵션\s*[A-Za-z0-9]+)\s*[:\-–\=]\s*'
+    text = re.sub(prefix_pattern, '', text, flags=re.IGNORECASE).strip()
+
+    # 괄호형 라벨 제거: [메인], (메인카피) 등
+    text = re.sub(r'^\[(?:메인|서브|카피|헤드라인)[^\]]*\]\s*', '', text)
+    text = re.sub(r'^\((?:메인|서브|카피|헤드라인)[^\)]*\)\s*', '', text)
+
+    # 4. 앞뒤 잔여 특수문자 및 따옴표 제거
+    text = text.strip(' "\'#`*:-\t')
+    return text
+
+
 def extract_thumbnail_copy(project_folder: str) -> str:
-    """publish_kit.md 또는 script.md에서 썸네일 카피 텍스트 추출"""
+    """publish_kit.md 또는 script.md에서 썸네일 카피 텍스트 추출 (메타 라벨 자동 정제)"""
     pub_path = os.path.join(project_folder, "publish_kit.md")
     if os.path.exists(pub_path):
         try:
@@ -47,13 +78,15 @@ def extract_thumbnail_copy(project_folder: str) -> str:
                 content = f.read()
             m = re.search(r'#{1,4}\s*.*?(?:썸네일|카피|thumbnail).*?\n(.*?)(?=#{1,4}|\Z)', content, re.DOTALL | re.IGNORECASE)
             if m:
-                lines = [l.strip(' "\'#') for l in m.group(1).splitlines() if l.strip(' "\'#')]
+                raw_lines = [clean_thumbnail_line(l) for l in m.group(1).splitlines()]
+                lines = [l for l in raw_lines if l]
                 if lines:
                     return "\n".join(lines[:2])
             # 제목 옵션에서 첫 번째 추출
             m_t = re.search(r'#{1,4}\s*.*?(?:제목|title).*?\n(.*?)(?=#{1,4}|\Z)', content, re.DOTALL | re.IGNORECASE)
             if m_t:
-                lines = [re.sub(r'^\d+[\.\)]\s*', '', l).strip(' "\'#') for l in m_t.group(1).splitlines() if l.strip()]
+                raw_lines = [clean_thumbnail_line(l) for l in m_t.group(1).splitlines()]
+                lines = [l for l in raw_lines if l]
                 if lines:
                     return lines[0]
         except Exception as e:
@@ -64,7 +97,7 @@ def extract_thumbnail_copy(project_folder: str) -> str:
     if os.path.exists(s_path):
         try:
             with open(s_path, "r", encoding="utf-8") as f:
-                s_lines = [l.strip() for l in f.read().splitlines() if l.strip()]
+                s_lines = [clean_thumbnail_line(l) for l in f.read().splitlines() if l.strip()]
                 if s_lines:
                     return s_lines[0]
         except Exception:
@@ -143,11 +176,11 @@ def generate_shorts_thumbnail(
 
     bg = Image.alpha_composite(bg, overlay)
 
-    # 3. 텍스트 레이아웃 분할 (줄바꿈 정리)
-    raw_lines = [l.strip() for l in copy_text.splitlines() if l.strip()]
+    # 3. 텍스트 레이아웃 분할 (불필요한 메타 라벨 제거 및 줄바꿈 정리)
+    raw_lines = [clean_thumbnail_line(l) for l in copy_text.splitlines()]
+    raw_lines = [l for l in raw_lines if l]
     lines = []
-    for l in raw_lines:
-        clean_l = re.sub(r'^[^\w가-힣\?🔥⚡✨\!\~]+', '', l).strip(' "\'#')
+    for clean_l in raw_lines:
         if len(clean_l) > 16:
             # 너무 긴 문장은 2줄로 분할
             mid = len(clean_l) // 2
