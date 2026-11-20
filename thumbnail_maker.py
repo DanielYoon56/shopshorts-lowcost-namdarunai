@@ -264,7 +264,8 @@ def generate_shorts_thumbnail(
 
     # 5. 텍스트 렌더링 (간판체 볼드 스타일)
     # 1줄(위): 형광 녹색(#00FF66), 2줄(아래): 형광 핑크색(#FF1493)
-    start_y = 290
+    # 상단 위치 조정: 한 글자 행 높이만큼 위로 이동 (290 -> 160)
+    start_y = 160
     line_bboxes = [draw.textbbox((0, 0), line, font=font_main, stroke_width=8) for line in display_lines]
     line_h = max((bb[3] - bb[1]) for bb in line_bboxes) if line_bboxes else 100
 
