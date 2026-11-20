@@ -18,23 +18,78 @@ if not os.path.exists(FONT_PATH):
     FONT_PATH = "C:/Windows/Fonts/malgun.ttf"
 
 
+def _trim_letterbox_margins(image: Image.Image) -> Image.Image:
+    """이미지 상하/좌우에 존재하는 불필요한 단색 여백(흰색/검은색 패딩 박스)을 감지하여 완전 제거"""
+    try:
+        import numpy as np
+        rgb_im = image.convert("RGB")
+        arr = np.array(rgb_im)
+        h, w, _ = arr.shape
+
+        # 상하 단색 여백 감지 (행별 평균 및 표준편차)
+        row_means = np.mean(arr, axis=(1, 2))
+        row_stds = np.std(arr, axis=(1, 2))
+        is_row_margin = ((row_means > 238) | (row_means < 18)) & (row_stds < 14)
+
+        top = 0
+        while top < h and is_row_margin[top]:
+            top += 1
+
+        bottom = h - 1
+        while bottom > top and is_row_margin[bottom]:
+            bottom -= 1
+
+        # 좌우 단색 여백 감지 (열별 평균 및 표준편차)
+        col_means = np.mean(arr, axis=(0, 2))
+        col_stds = np.std(arr, axis=(0, 2))
+        is_col_margin = ((col_means > 238) | (col_means < 18)) & (col_stds < 14)
+
+        left = 0
+        while left < w and is_col_margin[left]:
+            left += 1
+
+        right = w - 1
+        while right > left and is_col_margin[right]:
+            right -= 1
+
+        # 유의미한 여백이 감지된 경우에만 안전하게 크롭
+        if top > 10 or bottom < h - 10 or left > 10 or right < w - 10:
+            crop_box = (
+                max(0, left),
+                max(0, top),
+                min(w, right + 1),
+                min(h, bottom + 1)
+            )
+            trimmed = image.crop(crop_box)
+            print(f"[*] 불필요한 여백 박스 제거 완료: {image.size} -> {trimmed.size}")
+            return trimmed
+    except Exception as e:
+        print(f"[!] 여백 감지 생략: {e}")
+
+    return image
+
+
 def _crop_and_resize_9_16(image: Image.Image, target_w=1080, target_h=1920) -> Image.Image:
-    """이미지를 9:16 (1080x1920) 비율로 중앙 크롭 및 리사이징"""
+    """상하 여백 박스 제거 후 9:16 (1080x1920) 꽉 찬 풀이미지(Full Image)로 중앙 크롭 및 리사이징"""
+    # 1. 흰색/검정색 레터박스 여백이 있으면 먼저 완전 제거
+    image = _trim_letterbox_margins(image)
+
     w, h = image.size
     target_ratio = target_w / target_h
     current_ratio = w / h
 
     if current_ratio > target_ratio:
-        # 가로가 더 넓음 -> 좌우 크롭
+        # 가로가 더 넓음 -> 좌우 중앙 크롭
         new_w = int(h * target_ratio)
         offset = (w - new_w) // 2
         image = image.crop((offset, 0, offset + new_w, h))
     else:
-        # 세로가 더 김 -> 상하 크롭
+        # 세로가 더 길거나 가로가 좁음 -> 상하 중앙 크롭
         new_h = int(w / target_ratio)
         offset = (h - new_h) // 2
         image = image.crop((0, offset, w, offset + new_h))
 
+    # 1080x1920 캔버스에 여백 전혀 없이 100% 꽉 채운 풀이미지로 리사이즈
     return image.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
 
@@ -183,18 +238,18 @@ def generate_shorts_thumbnail(
     sub_copy = raw_lines[1] if len(raw_lines) > 1 else ""
     display_lines = [l for l in [main_copy, sub_copy] if l]
 
-    # 4. 동일한 크기의 폰트 자동 스케일링 (두 줄 모두 980px 안에 '한 줄'로 딱 들어가도록)
+    # 4. 동일한 크기의 폰트 자동 스케일링 (시인성 극대화: 94pt부터 시작, 1000px 폭 한 줄 맞춤)
     draw = ImageDraw.Draw(bg)
-    font_size = 76
+    font_size = 94
     try:
-        for f_sz in range(76, 50, -2):
+        for f_sz in range(94, 56, -2):
             font_test = ImageFont.truetype(FONT_PATH, f_sz)
             max_w = max(
-                (draw.textbbox((0, 0), l, font=font_test, stroke_width=8)[2] - 
-                 draw.textbbox((0, 0), l, font=font_test, stroke_width=8)[0])
+                (draw.textbbox((0, 0), l, font=font_test, stroke_width=9)[2] - 
+                 draw.textbbox((0, 0), l, font=font_test, stroke_width=9)[0])
                 for l in display_lines
             ) if display_lines else 0
-            if max_w <= 980:
+            if max_w <= 1000:
                 font_size = f_sz
                 break
             font_size = f_sz
@@ -203,39 +258,39 @@ def generate_shorts_thumbnail(
         font_main = ImageFont.load_default()
 
     # 5. 텍스트 렌더링 (박스 없음, 배지 없음)
-    # 1줄: 분홍색(#FF2A85), 2줄: 초록색(#00E676), 굵은 검은색 테두리
-    start_y = 310
-    line_bboxes = [draw.textbbox((0, 0), line, font=font_main, stroke_width=8) for line in display_lines]
-    line_h = max((bb[3] - bb[1]) for bb in line_bboxes) if line_bboxes else 80
+    # 1줄: 분홍색(#FF1A75), 2줄: 초록색(#00E676), 굵은 폰트 + 9px 외곽선
+    start_y = 300
+    line_bboxes = [draw.textbbox((0, 0), line, font=font_main, stroke_width=9) for line in display_lines]
+    line_h = max((bb[3] - bb[1]) for bb in line_bboxes) if line_bboxes else 90
 
     cur_y = start_y
-    colors = ["#FF2A85", "#00E676"]  # 1줄 핫핑크, 2줄 네온그린
+    colors = ["#FF1A75", "#00E676"]  # 1줄 핫핑크, 2줄 네온그린
 
     for idx, line in enumerate(display_lines):
-        line_bb = draw.textbbox((0, 0), line, font=font_main, stroke_width=8)
+        line_bb = draw.textbbox((0, 0), line, font=font_main, stroke_width=9)
         w = line_bb[2] - line_bb[0]
         x = (1080 - w) // 2
         text_color = colors[idx] if idx < len(colors) else "#FFFFFF"
 
-        # 그림자 효과 (배경과의 분리 및 시인성 극대화)
+        # 입체 그림자 효과 (블랙 섀도우)
         draw.text(
-            (x + 3, cur_y + 4),
+            (x + 4, cur_y + 5),
             line,
             font=font_main,
             fill="#000000",
-            stroke_width=6,
+            stroke_width=7,
             stroke_fill="#000000"
         )
-        # 메인 텍스트 (분홍색/초록색 + 굵은 검은색 외곽선)
+        # 메인 텍스트 (분홍색/초록색 + 굵은 검은색 외곽선 9px)
         draw.text(
             (x, cur_y),
             line,
             font=font_main,
             fill=text_color,
-            stroke_width=8,
+            stroke_width=9,
             stroke_fill="#000000"
         )
-        cur_y += line_h + 28
+        cur_y += line_h + 32
 
     # 5. 최종 이미지 저장 (YouTube 2MB 규격 완벽 호환 고화질 JPEG 및 PNG 동시 저장)
     final_rgb = bg.convert("RGB")

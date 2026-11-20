@@ -58,18 +58,20 @@ def generate_via_gemini_imagen(prompt, output_path, aspect_ratio="9:16", ref_ima
                         with open(output_path, "wb") as f:
                             f.write(part.inline_data.data)
                         
-                        # 9:16 캔버스 패딩 보정
+                        # 9:16 풀스크린 크롭 (흰색/검은색 패딩 박스 없이 100% 꽉 채움)
                         try:
                             img = Image.open(output_path)
                             w, h = img.size
                             if aspect_ratio == "9:16" and (w != 1080 or h != 1920):
                                 target_w, target_h = 1080, 1920
-                                canvas = Image.new("RGB", (target_w, target_h), (255, 255, 255))
-                                scale = min(target_w / w, target_h / h)
-                                nw, nh = int(w * scale), int(h * scale)
+                                scale = max(target_w / w, target_h / h)
+                                nw, nh = int(round(w * scale)), int(round(h * scale))
                                 resized = img.resize((nw, nh), Image.LANCZOS)
-                                canvas.paste(resized, ((target_w - nw) // 2, (target_h - nh) // 2))
-                                canvas.save(output_path, quality=95)
+                                # 중앙 크롭하여 1080x1920 꽉 채움
+                                left = (nw - target_w) // 2
+                                top = (nh - target_h) // 2
+                                cropped = resized.crop((left, top, left + target_w, top + target_h))
+                                cropped.save(output_path, quality=95)
                         except Exception:
                             pass
                         print(f"[+] [{model_name}] 실물 레퍼런스 반영 이미지 생성 성공 -> {output_path}")
