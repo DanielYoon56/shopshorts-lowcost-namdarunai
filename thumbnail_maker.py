@@ -13,8 +13,13 @@ import glob
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-FONT_PATH = "C:/Windows/Fonts/malgunbd.ttf"
-if not os.path.exists(FONT_PATH):
+# 간판체(초굵은 폰트) 우선 적용: Black Han Sans(검은고딕) -> 맑은고딕 볼드
+LOCAL_SIGN_FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts", "BlackHanSans-Regular.ttf")
+if os.path.exists(LOCAL_SIGN_FONT):
+    FONT_PATH = LOCAL_SIGN_FONT
+elif os.path.exists("C:/Windows/Fonts/malgunbd.ttf"):
+    FONT_PATH = "C:/Windows/Fonts/malgunbd.ttf"
+else:
     FONT_PATH = "C:/Windows/Fonts/malgun.ttf"
 
 
@@ -238,18 +243,18 @@ def generate_shorts_thumbnail(
     sub_copy = raw_lines[1] if len(raw_lines) > 1 else ""
     display_lines = [l for l in [main_copy, sub_copy] if l]
 
-    # 4. 동일한 크기의 폰트 자동 스케일링 (시인성 극대화: 94pt부터 시작, 1000px 폭 한 줄 맞춤)
+    # 4. 간판체(검은고딕) 타이포그래피 자동 스케일링 (102pt부터 시작, 1010px 폭 한 줄 맞춤)
     draw = ImageDraw.Draw(bg)
-    font_size = 94
+    font_size = 102
     try:
-        for f_sz in range(94, 56, -2):
+        for f_sz in range(102, 58, -2):
             font_test = ImageFont.truetype(FONT_PATH, f_sz)
             max_w = max(
-                (draw.textbbox((0, 0), l, font=font_test, stroke_width=9)[2] - 
-                 draw.textbbox((0, 0), l, font=font_test, stroke_width=9)[0])
+                (draw.textbbox((0, 0), l, font=font_test, stroke_width=8)[2] - 
+                 draw.textbbox((0, 0), l, font=font_test, stroke_width=8)[0])
                 for l in display_lines
             ) if display_lines else 0
-            if max_w <= 1000:
+            if max_w <= 1010:
                 font_size = f_sz
                 break
             font_size = f_sz
@@ -257,40 +262,40 @@ def generate_shorts_thumbnail(
     except Exception:
         font_main = ImageFont.load_default()
 
-    # 5. 텍스트 렌더링 (박스 없음, 배지 없음)
-    # 1줄: 분홍색(#FF1A75), 2줄: 초록색(#00E676), 굵은 폰트 + 9px 외곽선
-    start_y = 300
-    line_bboxes = [draw.textbbox((0, 0), line, font=font_main, stroke_width=9) for line in display_lines]
-    line_h = max((bb[3] - bb[1]) for bb in line_bboxes) if line_bboxes else 90
+    # 5. 텍스트 렌더링 (간판체 볼드 스타일)
+    # 1줄(위): 형광 녹색(#00FF66), 2줄(아래): 형광 핑크색(#FF1493)
+    start_y = 290
+    line_bboxes = [draw.textbbox((0, 0), line, font=font_main, stroke_width=8) for line in display_lines]
+    line_h = max((bb[3] - bb[1]) for bb in line_bboxes) if line_bboxes else 100
 
     cur_y = start_y
-    colors = ["#FF1A75", "#00E676"]  # 1줄 핫핑크, 2줄 네온그린
+    colors = ["#00FF66", "#FF1493"]  # 1줄: 형광 녹색, 2줄: 형광 핑크
 
     for idx, line in enumerate(display_lines):
-        line_bb = draw.textbbox((0, 0), line, font=font_main, stroke_width=9)
+        line_bb = draw.textbbox((0, 0), line, font=font_main, stroke_width=8)
         w = line_bb[2] - line_bb[0]
         x = (1080 - w) // 2
         text_color = colors[idx] if idx < len(colors) else "#FFFFFF"
 
-        # 입체 그림자 효과 (블랙 섀도우)
+        # 입체 블랙 섀도우 (시인성 극대화)
         draw.text(
-            (x + 4, cur_y + 5),
+            (x + 5, cur_y + 6),
             line,
             font=font_main,
             fill="#000000",
-            stroke_width=7,
+            stroke_width=6,
             stroke_fill="#000000"
         )
-        # 메인 텍스트 (분홍색/초록색 + 굵은 검은색 외곽선 9px)
+        # 간판체 메인 텍스트 (형광 녹색/형광 핑크 + 진한 블랙 외곽선)
         draw.text(
             (x, cur_y),
             line,
             font=font_main,
             fill=text_color,
-            stroke_width=9,
+            stroke_width=8,
             stroke_fill="#000000"
         )
-        cur_y += line_h + 32
+        cur_y += line_h + 30
 
     # 5. 최종 이미지 저장 (YouTube 2MB 규격 완벽 호환 고화질 JPEG 및 PNG 동시 저장)
     final_rgb = bg.convert("RGB")
