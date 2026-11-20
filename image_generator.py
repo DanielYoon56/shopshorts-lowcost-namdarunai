@@ -84,12 +84,24 @@ def generate_via_huggingface(prompt, output_path, width=1024, height=576, model=
     """
     Hugging Face Serverless Inference API를 통한 FLUX.1 이미지 무료 생성 (HF_TOKEN 필요)
     - 상업적 이용 가능 (Apache 2.0 라이선스)
-    - 무료 계정의 Serverless Inference API 호출
+    - 공식 huggingface_hub InferenceClient 및 REST API 자동 폴백 지원
     """
     hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
     if not hf_token:
         raise ValueError("HF_TOKEN이 .env에 설정되지 않았습니다. https://huggingface.co/settings/tokens 에서 Read 토큰을 발급받아 등록하세요.")
 
+    # 1. 공식 InferenceClient 시도
+    try:
+        from huggingface_hub import InferenceClient
+        client = InferenceClient(token=hf_token)
+        image = client.text_to_image(prompt, model=model, width=width, height=height)
+        image.save(output_path)
+        print(f"[+] [Hugging Face FLUX] InferenceClient 생성 성공 -> {output_path}")
+        return True
+    except Exception as ie:
+        print(f"[*] InferenceClient 실패 ({ie}), REST API 직접 호출 시도...")
+
+    # 2. REST API 직접 호출
     api_url = f"https://api-inference.huggingface.co/models/{model}"
     headers = {
         "Authorization": f"Bearer {hf_token}",
