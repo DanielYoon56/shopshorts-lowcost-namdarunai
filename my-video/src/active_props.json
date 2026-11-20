@@ -1,260 +1,202 @@
 {
-  "folderName": "261115_신일EMF싱글매트",
+  "folderName": "261120_충전식 손난로",
   "audioFileName": "output_1.2x.wav",
-  "durationInFrames": 684,
+  "durationInFrames": 711,
   "sceneData": [
     {
       "scene_id": 1,
       "start": 0.0,
-      "end": 1.03,
-      "duration_frames": 30,
+      "end": 1.62,
+      "duration_frames": 48,
       "text_blocks": [
         {
-          "text": "외출하고 나서",
+          "text": "아직도 일회용 핫팩",
           "start": 0.0,
-          "end": 1.03
+          "end": 1.62
         }
       ]
     },
     {
       "scene_id": 2,
-      "start": 1.03,
-      "end": 2.22,
-      "duration_frames": 35,
+      "start": 1.62,
+      "end": 3.64,
+      "duration_frames": 60,
       "text_blocks": [
         {
-          "text": "전기장판 껐는지",
-          "start": 1.03,
-          "end": 2.22
+          "text": "흔들면서 기다리세요?",
+          "start": 1.62,
+          "end": 3.64
         }
       ]
     },
     {
       "scene_id": 3,
-      "start": 2.22,
-      "end": 3.76,
+      "start": 3.64,
+      "end": 5.18,
       "duration_frames": 46,
       "text_blocks": [
         {
-          "text": "온종일 불안하셨죠?",
-          "start": 2.22,
-          "end": 3.76
+          "text": "솔직히 흔들다 버리는",
+          "start": 3.64,
+          "end": 5.18
         }
       ]
     },
     {
       "scene_id": 4,
-      "start": 3.76,
-      "end": 5.44,
-      "duration_frames": 50,
+      "start": 5.18,
+      "end": 6.72,
+      "duration_frames": 46,
       "text_blocks": [
         {
-          "text": "신일 EMF 전기요로",
-          "start": 3.76,
-          "end": 5.44
+          "text": "핫팩은 손끝만 시렵고",
+          "start": 5.18,
+          "end": 6.72
         }
       ]
     },
     {
       "scene_id": 5,
-      "start": 5.44,
-      "end": 7.12,
-      "duration_frames": 50,
+      "start": 6.72,
+      "end": 7.92,
+      "duration_frames": 36,
       "text_blocks": [
         {
-          "text": "그 걱정 싹 잊으세요.",
-          "start": 5.44,
-          "end": 7.12
+          "text": "답답했거든요.",
+          "start": 6.72,
+          "end": 7.92
         }
       ]
     },
     {
       "scene_id": 6,
-      "start": 7.12,
-      "end": 8.46,
-      "duration_frames": 40,
+      "start": 7.92,
+      "end": 9.54,
+      "duration_frames": 48,
       "text_blocks": [
         {
-          "text": "싱글 침대에 딱 맞는",
-          "start": 7.12,
-          "end": 8.46
+          "text": "직접 써보고 딱 느낀 게",
+          "start": 7.92,
+          "end": 9.54
         }
       ]
     },
     {
       "scene_id": 7,
-      "start": 8.46,
-      "end": 9.79,
-      "duration_frames": 39,
+      "start": 9.54,
+      "end": 10.98,
+      "duration_frames": 43,
       "text_blocks": [
         {
-          "text": "깔끔한 다이아몬드",
-          "start": 8.46,
-          "end": 9.79
+          "text": "켜자마자 양면에서",
+          "start": 9.54,
+          "end": 10.98
         }
       ]
     },
     {
       "scene_id": 8,
-      "start": 9.79,
-      "end": 10.96,
-      "duration_frames": 35,
+      "start": 10.98,
+      "end": 12.6,
+      "duration_frames": 48,
       "text_blocks": [
         {
-          "text": "누빔 매트예요.",
-          "start": 9.79,
-          "end": 10.96
+          "text": "온기가 바로 퍼져요.",
+          "start": 10.98,
+          "end": 12.6
         }
       ]
     },
     {
       "scene_id": 9,
-      "start": 10.96,
-      "end": 12.12,
-      "duration_frames": 34,
+      "start": 12.6,
+      "end": 14.02,
+      "duration_frames": 42,
       "text_blocks": [
         {
-          "text": "취침 모드부터",
-          "start": 10.96,
-          "end": 12.12
+          "text": "보들보들한 그립감에",
+          "start": 12.6,
+          "end": 14.02
         }
       ]
     },
     {
       "scene_id": 10,
-      "start": 12.12,
-      "end": 13.85,
-      "duration_frames": 51,
+      "start": 14.02,
+      "end": 15.59,
+      "duration_frames": 47,
       "text_blocks": [
         {
-          "text": "고온까지 총 9단계로",
-          "start": 12.12,
-          "end": 13.85
+          "text": "실시간 배터리 잔량까지",
+          "start": 14.02,
+          "end": 15.59
         }
       ]
     },
     {
       "scene_id": 11,
-      "start": 13.85,
-      "end": 15.2,
-      "duration_frames": 40,
+      "start": 15.59,
+      "end": 17.16,
+      "duration_frames": 47,
       "text_blocks": [
         {
-          "text": "내 몸에 딱 맞추고",
-          "start": 13.85,
-          "end": 15.2
+          "text": "눈으로 바로 보입니다.",
+          "start": 15.59,
+          "end": 17.16
         }
       ]
     },
     {
       "scene_id": 12,
-      "start": 15.2,
-      "end": 15.96,
-      "duration_frames": 22,
+      "start": 17.16,
+      "end": 19.14,
+      "duration_frames": 59,
       "text_blocks": [
         {
-          "text": "15시간 뒤",
-          "start": 15.2,
-          "end": 15.96
+          "text": "10,000mAh 대용량이라",
+          "start": 17.16,
+          "end": 19.14
         }
       ]
     },
     {
       "scene_id": 13,
-      "start": 15.96,
-      "end": 16.86,
-      "duration_frames": 26,
+      "start": 19.14,
+      "end": 20.55,
+      "duration_frames": 42,
       "text_blocks": [
         {
-          "text": "알아서 꺼지는",
-          "start": 15.96,
-          "end": 16.86
+          "text": "캠핑 가도 밤새 든든하게",
+          "start": 19.14,
+          "end": 20.55
         }
       ]
     },
     {
       "scene_id": 14,
-      "start": 16.86,
-      "end": 17.77,
-      "duration_frames": 27,
+      "start": 20.55,
+      "end": 21.68,
+      "duration_frames": 33,
       "text_blocks": [
         {
-          "text": "자동 차단으로",
-          "start": 16.86,
-          "end": 17.77
+          "text": "손을 지켜줍니다.",
+          "start": 20.55,
+          "end": 21.68
         }
       ]
     },
     {
       "scene_id": 15,
-      "start": 17.77,
-      "end": 19.28,
-      "duration_frames": 45,
+      "start": 21.68,
+      "end": 23.68,
+      "duration_frames": 60,
       "text_blocks": [
         {
-          "text": "깜빡해도 안심이에요.",
-          "start": 17.77,
-          "end": 19.28
+          "text": "프로필 링크를 참조하세요.",
+          "start": 21.68,
+          "end": 23.68
         }
       ]
-    },
-    {
-      "scene_id": 16,
-      "start": 19.28,
-      "end": 21.04,
-      "duration_frames": 52,
-      "text_blocks": [
-        {
-          "text": "프로필 링크를",
-          "start": 19.28,
-          "end": 21.04
-        }
-      ]
-    },
-    {
-      "scene_id": 17,
-      "start": 21.04,
-      "end": 22.8,
-      "duration_frames": 52,
-      "text_blocks": [
-        {
-          "text": "참조하세요.",
-          "start": 21.04,
-          "end": 22.8
-        }
-      ]
-    }
-  ],
-  "cutVideos": [
-    {
-      "cutIndex": 1,
-      "hasVideo": true,
-      "fileName": "cut1.mp4"
-    },
-    {
-      "cutIndex": 2,
-      "hasVideo": true,
-      "fileName": "cut2.mp4"
-    },
-    {
-      "cutIndex": 3,
-      "hasVideo": true,
-      "fileName": "cut3.mp4"
-    },
-    {
-      "cutIndex": 4,
-      "hasVideo": true,
-      "fileName": "cut4.mp4"
-    },
-    {
-      "cutIndex": 5,
-      "hasVideo": true,
-      "fileName": "cut5.mp4"
-    },
-    {
-      "cutIndex": 6,
-      "hasVideo": true,
-      "fileName": "cut6.mp4"
     }
   ]
 }

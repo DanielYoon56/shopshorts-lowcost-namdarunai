@@ -78,7 +78,7 @@ const ThumbnailHookOverlay: React.FC<{
     <div
       style={{
         position: "absolute",
-        top: "20%",
+        top: "18%",
         left: "50%",
         transform: "translate(-50%, -50%)",
         width: "90%",
@@ -91,22 +91,18 @@ const ThumbnailHookOverlay: React.FC<{
       <div
         style={{
           fontFamily,
-          fontSize: "56px",
+          fontSize: "64px",
           fontWeight: 900,
-          color: "#FFE500",
+          color: "#FF2A85",
           textShadow: `
-            -4px -4px 0 #000,  
-             4px -4px 0 #000,
-            -4px  4px 0 #000,
-             4px  4px 0 #000,
-             0px 8px 18px rgba(0, 0, 0, 0.95)
+            -5px -5px 0 #000,  
+             5px -5px 0 #000,
+            -5px  5px 0 #000,
+             5px  5px 0 #000,
+             0px 6px 18px rgba(0, 0, 0, 0.95)
           `,
-          backgroundColor: "rgba(0, 0, 0, 0.85)",
-          padding: "18px 32px",
-          borderRadius: "26px",
-          border: "4px solid #FFE500",
           display: "inline-block",
-          lineHeight: 1.3,
+          lineHeight: 1.25,
           wordBreak: "keep-all",
           letterSpacing: "-1.5px",
         }}

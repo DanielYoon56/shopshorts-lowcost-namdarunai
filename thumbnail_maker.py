@@ -140,11 +140,13 @@ def generate_shorts_thumbnail(
     project_folder: str,
     copy_text: str = None,
     bg_image_path: str = None,
-    badge_label: str = "🔥 화제의 추천템"
+    badge_label: str = None
 ) -> str:
     """
     고화질 9:16 유튜브 쇼츠 썸네일 자동 합성 생성
-    Returns: 생성된 섬네일.png 파일 경로
+    - 박스 및 추천템 배지 완전 제거
+    - 1줄: 메인 카피 분홍색(#FF2A85) 굵은 글씨 한 줄
+    - 2줄: 서브 카피 초록색(#00E676) 같은 크기 폰트 한 줄
     """
     if not copy_text:
         copy_text = extract_thumbnail_copy(project_folder)
@@ -164,113 +166,76 @@ def generate_shorts_thumbnail(
     # 9:16 비율 크롭 및 리사이징 (1080x1920)
     bg = _crop_and_resize_9_16(base_img, 1080, 1920)
 
-    # 2. 상단/중앙 시인성을 높이기 위한 반투명 어두운 오버레이 레이어
+    # 2. 상단 텍스트 가독성을 위한 은은한 비네팅 그라데이션 레이어
     overlay = Image.new("RGBA", bg.size, (0, 0, 0, 0))
     draw_overlay = ImageDraw.Draw(overlay)
-
-    # 상단 텍스트 영역에 부드러운 그라데이션 어둡게 처리
-    for y in range(800):
-        alpha = int(140 * (1.0 - (abs(y - 420) / 450) ** 1.5))
+    for y in range(650):
+        alpha = int(110 * (1.0 - (y / 650) ** 1.3))
         if alpha > 0:
-            draw_overlay.line([(0, y), (1080, y)], fill=(0, 0, 0, min(140, alpha)))
-
+            draw_overlay.line([(0, y), (1080, y)], fill=(0, 0, 0, alpha))
     bg = Image.alpha_composite(bg, overlay)
 
-    # 3. 텍스트 레이아웃 분할 (불필요한 메타 라벨 제거 및 줄바꿈 정리)
+    # 3. 텍스트 추출: 메인 카피 1줄, 서브 카피 1줄
     raw_lines = [clean_thumbnail_line(l) for l in copy_text.splitlines()]
     raw_lines = [l for l in raw_lines if l]
-    lines = []
-    for clean_l in raw_lines:
-        if len(clean_l) > 16:
-            # 너무 긴 문장은 2줄로 분할
-            mid = len(clean_l) // 2
-            split_idx = clean_l.rfind(" ", 0, mid + 4)
-            if split_idx == -1:
-                split_idx = mid
-            lines.append(clean_l[:split_idx].strip())
-            lines.append(clean_l[split_idx:].strip())
-        else:
-            lines.append(clean_l)
 
-    lines = lines[:3]  # 최대 3줄
+    main_copy = raw_lines[0] if len(raw_lines) > 0 else ""
+    sub_copy = raw_lines[1] if len(raw_lines) > 1 else ""
+    display_lines = [l for l in [main_copy, sub_copy] if l]
 
-    # 4. 텍스트 및 배지 렌더링
+    # 4. 동일한 크기의 폰트 자동 스케일링 (두 줄 모두 980px 안에 '한 줄'로 딱 들어가도록)
     draw = ImageDraw.Draw(bg)
-
+    font_size = 76
     try:
-        font_main = ImageFont.truetype(FONT_PATH, 74)
-        font_badge = ImageFont.truetype(FONT_PATH, 42)
+        for f_sz in range(76, 50, -2):
+            font_test = ImageFont.truetype(FONT_PATH, f_sz)
+            max_w = max(
+                (draw.textbbox((0, 0), l, font=font_test, stroke_width=8)[2] - 
+                 draw.textbbox((0, 0), l, font=font_test, stroke_width=8)[0])
+                for l in display_lines
+            ) if display_lines else 0
+            if max_w <= 980:
+                font_size = f_sz
+                break
+            font_size = f_sz
+        font_main = ImageFont.truetype(FONT_PATH, font_size)
     except Exception:
         font_main = ImageFont.load_default()
-        font_badge = ImageFont.load_default()
 
-    # 텍스트 크기 계산
-    line_bboxes = [draw.textbbox((0, 0), line, font=font_main, stroke_width=6) for line in lines]
-    max_line_w = max((bb[2] - bb[0]) for bb in line_bboxes) if line_bboxes else 400
+    # 5. 텍스트 렌더링 (박스 없음, 배지 없음)
+    # 1줄: 분홍색(#FF2A85), 2줄: 초록색(#00E676), 굵은 검은색 테두리
+    start_y = 310
+    line_bboxes = [draw.textbbox((0, 0), line, font=font_main, stroke_width=8) for line in display_lines]
     line_h = max((bb[3] - bb[1]) for bb in line_bboxes) if line_bboxes else 80
 
-    total_text_h = len(lines) * (line_h + 24)
-    start_y = 360  # 모바일 쇼츠 UI 상단 여백 (프로필/아이콘 간섭 방지 최적 영역)
+    cur_y = start_y
+    colors = ["#FF2A85", "#00E676"]  # 1줄 핫핑크, 2줄 네온그린
 
-    # A. 상단 후킹 배지 (예: 🔥 화제의 추천템)
-    if badge_label:
-        badge_bb = draw.textbbox((0, 0), badge_label, font=font_badge)
-        badge_w = badge_bb[2] - badge_bb[0] + 48
-        badge_h = badge_bb[3] - badge_bb[1] + 24
-        badge_x = (1080 - badge_w) // 2
-        badge_y = start_y - badge_h - 26
-
-        draw.rounded_rectangle(
-            [badge_x, badge_y, badge_x + badge_w, badge_y + badge_h],
-            radius=18,
-            fill="#FFE500"  # 네온 옐로우 배지
-        )
-        draw.text(
-            (badge_x + 24, badge_y + 8),
-            badge_label,
-            font=font_badge,
-            fill="#000000"
-        )
-
-    # B. 메인 텍스트 박스 배경 (반투명 블랙 박스 + 네온 옐로우 테두리)
-    pad_x = 44
-    pad_y = 32
-    box_w = min(1000, max_line_w + pad_x * 2)
-    box_h = total_text_h + pad_y * 2
-    box_x = (1080 - box_w) // 2
-    box_y = start_y
-
-    box_overlay = Image.new("RGBA", bg.size, (0, 0, 0, 0))
-    box_draw = ImageDraw.Draw(box_overlay)
-
-    # 반투명 블랙 백그라운드
-    box_draw.rounded_rectangle(
-        [box_x, box_y, box_x + box_w, box_y + box_h],
-        radius=30,
-        fill=(0, 0, 0, 205),
-        outline="#FFE500",
-        width=5
-    )
-    bg = Image.alpha_composite(bg, box_overlay)
-    draw = ImageDraw.Draw(bg)
-
-    # C. 메인 텍스트 그리기 (스트로크 + 색상 교차)
-    cur_y = box_y + pad_y
-    for idx, line in enumerate(lines):
-        line_bb = draw.textbbox((0, 0), line, font=font_main, stroke_width=6)
+    for idx, line in enumerate(display_lines):
+        line_bb = draw.textbbox((0, 0), line, font=font_main, stroke_width=8)
         w = line_bb[2] - line_bb[0]
         x = (1080 - w) // 2
-        # 첫 줄은 노란색, 둘째/셋째 줄은 화이트로 시선 분산 방지
-        text_color = "#FFE500" if idx == 0 else "#FFFFFF"
+        text_color = colors[idx] if idx < len(colors) else "#FFFFFF"
+
+        # 그림자 효과 (배경과의 분리 및 시인성 극대화)
+        draw.text(
+            (x + 3, cur_y + 4),
+            line,
+            font=font_main,
+            fill="#000000",
+            stroke_width=6,
+            stroke_fill="#000000"
+        )
+        # 메인 텍스트 (분홍색/초록색 + 굵은 검은색 외곽선)
         draw.text(
             (x, cur_y),
             line,
             font=font_main,
             fill=text_color,
-            stroke_width=6,
+            stroke_width=8,
             stroke_fill="#000000"
         )
-        cur_y += line_h + 24
+        cur_y += line_h + 28
 
     # 5. 최종 이미지 저장 (YouTube 2MB 규격 완벽 호환 고화질 JPEG 및 PNG 동시 저장)
     final_rgb = bg.convert("RGB")
